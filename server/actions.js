@@ -103,7 +103,8 @@ function executeBuild(gameState, playerId, params) {
 
   // Find lowest level tile that's valid for current era
   const tileIndex = playerTiles.findIndex(t => {
-    if (gameState.era === ERAS.CANAL && t.eraMin === 'rail') return false;
+    if (t.era === 'canal' && gameState.era !== ERAS.CANAL) return false;
+    if (t.era === 'rail' && gameState.era !== ERAS.RAIL) return false;
     return true;
   });
 

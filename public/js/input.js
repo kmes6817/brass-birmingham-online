@@ -236,7 +236,7 @@ class InputHandler {
 
     // 找到目前時代可用的最低等級
     const era = this.gameState.era;
-    const tile = tiles.find(t => !(era === 'canal' && t.eraMin === 'rail'));
+    const tile = tiles.find(t => !(t.era === 'canal' && era !== 'canal') && !(t.era === 'rail' && era !== 'rail'));
     if (!tile) return '<br><span style="color:#e06040">目前時代沒有可用板塊</span>';
 
     const d = INDUSTRY_DISPLAY[industryType];

@@ -317,12 +317,8 @@ function applyConsumption(gameState, sources) {
         const resType = slot.built.type;
         slot.built.resources -= src.amount;
 
-        // 煤炭和鐵從板塊消耗後回到市場（啤酒不回市場）
-        if (resType === 'coal') {
-          gameState.coalMarket = Math.min(gameState.coalMarket + src.amount, COAL_MARKET_SIZE);
-        } else if (resType === 'iron') {
-          gameState.ironMarket = Math.min(gameState.ironMarket + src.amount, IRON_MARKET_SIZE);
-        }
+        // 從板塊消耗的資源直接移除，不回市場
+        // （只有 sell action 才會把資源補回市場）
 
         // Auto-flip resource industries when emptied
         if (slot.built.resources <= 0 && !slot.built.flipped) {

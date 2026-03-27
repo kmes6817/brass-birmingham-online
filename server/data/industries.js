@@ -5,10 +5,10 @@ const industryData = {
   [T.COTTON]: {
     name: '棉花工廠',
     tiles: [
-      { level: 1, cost: 12, coalCost: 0, ironCost: 0, income: 5, vp: 5, linkVP: 1, sellBeer: 1, eraMin: 'canal' },
-      { level: 2, cost: 14, coalCost: 1, ironCost: 0, income: 4, vp: 5, linkVP: 2, sellBeer: 1, eraMin: 'canal' },
-      { level: 3, cost: 16, coalCost: 1, ironCost: 1, income: 3, vp: 9, linkVP: 1, sellBeer: 1, eraMin: 'canal' },
-      { level: 4, cost: 18, coalCost: 1, ironCost: 1, income: 1, vp: 12, linkVP: 1, sellBeer: 0, eraMin: 'rail' }
+      { level: 1, cost: 12, coalCost: 0, ironCost: 0, income: 5, vp: 5, linkVP: 1, sellBeer: 1, era: 'canal' },
+      { level: 2, cost: 14, coalCost: 1, ironCost: 0, income: 4, vp: 5, linkVP: 2, sellBeer: 1, era: 'both' },
+      { level: 3, cost: 16, coalCost: 1, ironCost: 1, income: 3, vp: 9, linkVP: 1, sellBeer: 1, era: 'both' },
+      { level: 4, cost: 18, coalCost: 1, ironCost: 1, income: 1, vp: 12, linkVP: 1, sellBeer: 0, era: 'both' }
     ],
     count: [3, 3, 3, 3] // total 12
   },
@@ -16,14 +16,14 @@ const industryData = {
   [T.MANUFACTURER]: {
     name: '製造商',
     tiles: [
-      { level: 1, cost: 8,  coalCost: 1, ironCost: 0, income: 5, vp: 3,  linkVP: 2, sellBeer: 1, eraMin: 'canal' },
-      { level: 2, cost: 10, coalCost: 0, ironCost: 1, income: 1, vp: 5,  linkVP: 1, sellBeer: 1, eraMin: 'canal' },
-      { level: 3, cost: 12, coalCost: 2, ironCost: 0, income: 4, vp: 4,  linkVP: 0, sellBeer: 1, eraMin: 'canal' },
-      { level: 4, cost: 8,  coalCost: 0, ironCost: 1, income: 6, vp: 3,  linkVP: 1, sellBeer: 1, eraMin: 'canal' },
-      { level: 5, cost: 16, coalCost: 1, ironCost: 0, income: 2, vp: 8,  linkVP: 2, sellBeer: 2, eraMin: 'rail' },
-      { level: 6, cost: 20, coalCost: 0, ironCost: 0, income: 6, vp: 7,  linkVP: 1, sellBeer: 1, eraMin: 'rail' },
-      { level: 7, cost: 16, coalCost: 1, ironCost: 1, income: 4, vp: 9,  linkVP: 0, sellBeer: 0, eraMin: 'rail' },
-      { level: 8, cost: 20, coalCost: 0, ironCost: 2, income: 1, vp: 11, linkVP: 1, sellBeer: 0, eraMin: 'rail' }
+      { level: 1, cost: 8,  coalCost: 1, ironCost: 0, income: 5, vp: 3,  linkVP: 2, sellBeer: 1, era: 'canal' },
+      { level: 2, cost: 10, coalCost: 0, ironCost: 1, income: 1, vp: 5,  linkVP: 1, sellBeer: 1, era: 'both' },
+      { level: 3, cost: 12, coalCost: 2, ironCost: 0, income: 4, vp: 4,  linkVP: 0, sellBeer: 1, era: 'rail' },
+      { level: 4, cost: 8,  coalCost: 0, ironCost: 1, income: 6, vp: 3,  linkVP: 1, sellBeer: 1, era: 'both' },
+      { level: 5, cost: 16, coalCost: 1, ironCost: 0, income: 2, vp: 8,  linkVP: 2, sellBeer: 2, era: 'both' },
+      { level: 6, cost: 20, coalCost: 0, ironCost: 0, income: 6, vp: 7,  linkVP: 1, sellBeer: 1, era: 'both' },
+      { level: 7, cost: 16, coalCost: 1, ironCost: 1, income: 4, vp: 9,  linkVP: 0, sellBeer: 0, era: 'both' },
+      { level: 8, cost: 20, coalCost: 0, ironCost: 2, income: 1, vp: 11, linkVP: 1, sellBeer: 0, era: 'both' }
     ],
     count: [2, 1, 1, 1, 2, 1, 2, 1] // total 11
   },
@@ -32,10 +32,10 @@ const industryData = {
     name: '煤礦',
     textColor: '#FFFFFF',
     tiles: [
-      { level: 1, cost: 5,  coalCost: 0, ironCost: 0, income: 4, vp: 1, linkVP: 2, resourceAmount: 2, eraMin: 'canal' },
-      { level: 2, cost: 7,  coalCost: 0, ironCost: 0, income: 7, vp: 2, linkVP: 1, resourceAmount: 3, eraMin: 'canal' },
-      { level: 3, cost: 8,  coalCost: 0, ironCost: 1, income: 6, vp: 3, linkVP: 1, resourceAmount: 4, eraMin: 'rail' },
-      { level: 4, cost: 10, coalCost: 0, ironCost: 1, income: 5, vp: 4, linkVP: 1, resourceAmount: 5, eraMin: 'rail' }
+      { level: 1, cost: 5,  coalCost: 0, ironCost: 0, income: 4, vp: 1, linkVP: 2, resourceAmount: 2, era: 'both' },
+      { level: 2, cost: 7,  coalCost: 0, ironCost: 0, income: 7, vp: 2, linkVP: 1, resourceAmount: 3, era: 'both' },
+      { level: 3, cost: 8,  coalCost: 0, ironCost: 1, income: 6, vp: 3, linkVP: 1, resourceAmount: 4, era: 'both' },
+      { level: 4, cost: 10, coalCost: 0, ironCost: 1, income: 5, vp: 4, linkVP: 1, resourceAmount: 5, era: 'both' }
     ],
     count: [2, 2, 2, 1] // total 7
   },
@@ -43,10 +43,10 @@ const industryData = {
   [T.IRON]: {
     name: '鐵工廠',
     tiles: [
-      { level: 1, cost: 5,  coalCost: 1, ironCost: 0, income: 3, vp: 3, linkVP: 1, resourceAmount: 4, eraMin: 'canal' },
-      { level: 2, cost: 7,  coalCost: 1, ironCost: 0, income: 3, vp: 5, linkVP: 1, resourceAmount: 4, eraMin: 'canal' },
-      { level: 3, cost: 9,  coalCost: 1, ironCost: 0, income: 2, vp: 7, linkVP: 1, resourceAmount: 5, eraMin: 'rail' },
-      { level: 4, cost: 12, coalCost: 1, ironCost: 0, income: 1, vp: 9, linkVP: 1, resourceAmount: 6, eraMin: 'rail' }
+      { level: 1, cost: 5,  coalCost: 1, ironCost: 0, income: 3, vp: 3, linkVP: 1, resourceAmount: 4, era: 'canal' },
+      { level: 2, cost: 7,  coalCost: 1, ironCost: 0, income: 3, vp: 5, linkVP: 1, resourceAmount: 4, era: 'both' },
+      { level: 3, cost: 9,  coalCost: 1, ironCost: 0, income: 2, vp: 7, linkVP: 1, resourceAmount: 5, era: 'both' },
+      { level: 4, cost: 12, coalCost: 1, ironCost: 0, income: 1, vp: 9, linkVP: 1, resourceAmount: 6, era: 'both' }
     ],
     count: [1, 1, 1, 1] // total 4
   },
@@ -54,10 +54,10 @@ const industryData = {
   [T.BREWERY]: {
     name: '啤酒廠',
     tiles: [
-      { level: 1, cost: 5, coalCost: 0, ironCost: 1, income: 4, vp: 4,  linkVP: 2, resourceAmount: 1, eraMin: 'canal' },
-      { level: 2, cost: 7, coalCost: 0, ironCost: 1, income: 5, vp: 5,  linkVP: 2, resourceAmount: 1, eraMin: 'canal' },
-      { level: 3, cost: 9, coalCost: 0, ironCost: 1, income: 5, vp: 7,  linkVP: 2, resourceAmount: 2, eraMin: 'rail' },
-      { level: 4, cost: 9, coalCost: 0, ironCost: 1, income: 5, vp: 10, linkVP: 2, resourceAmount: 2, eraMin: 'rail' }
+      { level: 1, cost: 5, coalCost: 0, ironCost: 1, income: 4, vp: 4,  linkVP: 2, resourceAmount: 1, era: 'both' },
+      { level: 2, cost: 7, coalCost: 0, ironCost: 1, income: 5, vp: 5,  linkVP: 2, resourceAmount: 1, era: 'both' },
+      { level: 3, cost: 9, coalCost: 0, ironCost: 1, income: 5, vp: 7,  linkVP: 2, resourceAmount: 2, era: 'both' },
+      { level: 4, cost: 9, coalCost: 0, ironCost: 1, income: 5, vp: 10, linkVP: 2, resourceAmount: 2, era: 'rail' }
     ],
     count: [2, 2, 2, 1] // total 7
   },
@@ -65,11 +65,11 @@ const industryData = {
   [T.POTTERY]: {
     name: '陶瓷廠',
     tiles: [
-      { level: 1, cost: 17, coalCost: 0, ironCost: 1, income: 5, vp: 10, linkVP: 1, sellBeer: 1, eraMin: 'canal', noDevelop: true },
-      { level: 2, cost: 0,  coalCost: 1, ironCost: 0, income: 1, vp: 1,  linkVP: 1, sellBeer: 1, eraMin: 'canal' },
-      { level: 3, cost: 22, coalCost: 2, ironCost: 0, income: 5, vp: 11, linkVP: 1, sellBeer: 2, eraMin: 'rail', noDevelop: true },
-      { level: 4, cost: 0,  coalCost: 1, ironCost: 0, income: 1, vp: 1,  linkVP: 1, sellBeer: 1, eraMin: 'rail' },
-      { level: 5, cost: 24, coalCost: 2, ironCost: 0, income: 5, vp: 20, linkVP: 1, sellBeer: 2, eraMin: 'rail', noDevelop: true }
+      { level: 1, cost: 17, coalCost: 0, ironCost: 1, income: 5, vp: 10, linkVP: 1, sellBeer: 1, era: 'both', noDevelop: true },
+      { level: 2, cost: 0,  coalCost: 1, ironCost: 0, income: 1, vp: 1,  linkVP: 1, sellBeer: 1, era: 'both' },
+      { level: 3, cost: 22, coalCost: 2, ironCost: 0, income: 5, vp: 11, linkVP: 1, sellBeer: 2, era: 'both', noDevelop: true },
+      { level: 4, cost: 0,  coalCost: 1, ironCost: 0, income: 1, vp: 1,  linkVP: 1, sellBeer: 1, era: 'both' },
+      { level: 5, cost: 24, coalCost: 2, ironCost: 0, income: 5, vp: 20, linkVP: 1, sellBeer: 2, era: 'rail', noDevelop: true }
     ],
     count: [1, 1, 1, 1, 1] // total 5
   }
@@ -94,7 +94,7 @@ function createPlayerTiles() {
           linkVP: tileDef.linkVP,
           sellBeer: tileDef.sellBeer || 0,
           resourceAmount: tileDef.resourceAmount || 0,
-          eraMin: tileDef.eraMin,
+          era: tileDef.era,
           noDevelop: tileDef.noDevelop || false,
           flipped: false,
           resources: 0

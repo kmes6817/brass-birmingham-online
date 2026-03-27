@@ -158,7 +158,7 @@ class GameUI {
 
       for (const [lv, lvTiles] of Object.entries(byLevel)) {
         const t = lvTiles[0];
-        const eraLocked = (era === 'canal' && t.eraMin === 'rail');
+        const eraLocked = (t.era === 'canal' && era !== 'canal') || (t.era === 'rail' && era !== 'rail');
         const noDev = t.noDevelop;
 
         for (let idx = 0; idx < lvTiles.length; idx++) {
