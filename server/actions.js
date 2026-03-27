@@ -504,15 +504,26 @@ function executeSell(gameState, playerId, params) {
   }
 
   // 找到每個販賣對應的商人（用來取商人啤酒）
+  // 追蹤每個商人已被本次 sell 動作預訂的格數，避免同一格被兩次販賣重複使用
+  const merchantUsedCount = {}; // merchantId -> 已預訂次數
   const saleToMerchant = [];
   for (const sale of sales) {
     const loc = gameState.board[sale.locationId];
     const slot = loc.slots[sale.slotIndex];
     const type = slot.built.type;
     const reachable = findReachableMerchants(gameState, sale.locationId, type);
-    // 優先選有啤酒的商人
-    const withBeer = reachable.find(m => m.beer > 0) || reachable[0];
-    saleToMerchant.push(withBeer);
+    // 找有空餘格（扣掉本輪已預訂）的商人，優先選有啤酒的
+    const available = reachable.filter(m => {
+      const alreadyUsed = merchantUsedCount[m.id] || 0;
+      const availableTiles = (m.tiles || []).filter(t => !t.used && t.accepts.includes(type));
+      return availableTiles.length > alreadyUsed;
+    });
+    if (available.length === 0) {
+      return { success: false, reason: `商人格不足，無法在同一動作中販賣多個相同商品到同一商人` };
+    }
+    const chosen = available.find(m => m.beer > 0) || available[0];
+    merchantUsedCount[chosen.id] = (merchantUsedCount[chosen.id] || 0) + 1;
+    saleToMerchant.push(chosen);
   }
 
   // 計算啤酒需求，嘗試使用商人啤酒

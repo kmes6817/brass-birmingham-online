@@ -176,13 +176,8 @@ function consumeCoal(gameState, location, amount, playerId) {
       return { success: false, reason: '無法從市場購買煤炭：需要透過路線連接到商人圖標' };
     }
 
-    // 計算市場購買費用（考慮板塊煤回填後的實際市場供給）
-    // 板塊消耗的煤會回到市場，所以先計算回填量
-    let boardCoalReturned = 0;
-    for (const src of sources) {
-      if (!src.market) boardCoalReturned += src.amount;
-    }
-    let simSupply = Math.min(gameState.coalMarket + boardCoalReturned, COAL_MARKET_SIZE);
+    // 計算市場購買費用（板塊消耗的煤不回市場，直接用當前市場供給）
+    let simSupply = gameState.coalMarket;
     for (let i = 0; i < remaining; i++) {
       if (simSupply <= 0) {
         return { success: false, reason: '煤炭不足（市場和板塊都沒有）' };
