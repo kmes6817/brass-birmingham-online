@@ -554,3 +554,54 @@ input[type="text"]::placeholder{color:var(--text-dim)}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14);border-radius:3px}
 ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.22)}
+
+/* ===================== RESPONSIVE ===================== */
+
+/* 中螢幕 (≤1100px)：面板縮窄 */
+@media (max-width:1100px) {
+  #left-panel{width:210px}
+  #right-panel{width:210px;padding:8px}
+  .player-panel{padding:8px}
+  .pp-stats{grid-template-columns:1fr 1fr;gap:3px 6px}
+  .pp-stat{font-size:.85em}
+  .action-btn{padding:8px 10px;font-size:.92em}
+  #hand-area{padding:8px 12px 10px;min-height:110px}
+  .card{min-width:100px;max-width:120px;padding:10px 10px 12px}
+}
+
+/* 小螢幕 (≤850px)：隱藏左面板，右面板可收合 */
+@media (max-width:850px) {
+  #left-panel{display:none}
+  #right-panel{width:180px;padding:6px}
+  #top-bar{padding:6px 10px;gap:8px;flex-wrap:wrap;min-height:auto}
+  #era-badge{padding:3px 10px;font-size:.9em}
+  #turn-display{font-size:.9em}
+  .market-chip{padding:3px 8px;font-size:.85em}
+  #hand-area{padding:6px 10px 8px;min-height:90px}
+  .card{min-width:85px;max-width:105px;padding:8px}
+  .card .card-name{font-size:.92em}
+  .action-btn{padding:6px 8px;font-size:.85em}
+  .action-btn .ab-icon{width:18px;height:18px;font-size:1em}
+  .lobby-container{min-width:auto;max-width:95vw;padding:28px 20px}
+  .lobby-container h1{font-size:2em}
+  .lobby-container h2{font-size:1em}
+}
+
+/* 極小螢幕 (≤600px)：全螢幕地圖，面板覆蓋 */
+@media (max-width:600px) {
+  body{overflow:auto;height:auto}
+  #game-view{height:auto;min-height:100vh}
+  #game-area{flex-direction:column}
+  #right-panel{
+    width:100%;order:-1;
+    max-height:200px;overflow-y:auto;
+    border-left:none;border-bottom:1px solid rgba(255,255,255,.05);
+  }
+  #board-container{min-height:50vh}
+  #hand-cards{gap:6px}
+  .card{min-width:75px;max-width:95px;padding:6px}
+  .card .card-name{font-size:.85em}
+  .card .card-type{font-size:.7em}
+  #top-bar{justify-content:center}
+  #turn-display{flex:none;width:100%;text-align:center;order:1}
+}

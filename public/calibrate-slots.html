@@ -14,24 +14,51 @@
   點擊格子選中 → 方向鍵微調位置<br>
   Shift+方向鍵 大步<br><br>
   <span id="status">點擊一個格子開始</span><br><br>
-  格子大小：<input type="range" id="slot-size" min="16" max="48" value="32" oninput="changeSize(this.value)"> <span id="size-label">32</span>px<br>
+  格子大小：<input type="range" id="slot-size" min="16" max="60" value="42" oninput="changeSize(this.value)"> <span id="size-label">42</span>px<br>
   格子間距：<input type="range" id="slot-gap" min="0" max="20" value="4" oninput="changeGap(this.value)"> <span id="gap-label">4</span>px<br><br>
   <div id="type-editor" style="display:none;margin-bottom:8px">
     產業類型：<select id="type-select" onchange="changeType(this.value)">
-      <option value="棉">棉花</option>
-      <option value="煤">煤礦</option>
-      <option value="鐵">鐵廠</option>
-      <option value="工">工廠</option>
-      <option value="陶">陶瓷</option>
-      <option value="酒">啤酒</option>
-      <option value="棉/工">棉/工</option>
-      <option value="煤/工">煤/工</option>
-      <option value="煤/鐵">煤/鐵</option>
-      <option value="鐵/工">鐵/工</option>
-      <option value="陶/工">陶/工</option>
-      <option value="工/棉">工/棉</option>
-      <option value="工/鐵">工/鐵</option>
-      <option value="工/煤">工/煤</option>
+      <optgroup label="單一產業">
+        <option value="棉">棉花</option>
+        <option value="煤">煤礦</option>
+        <option value="鐵">鐵廠</option>
+        <option value="工">工廠</option>
+        <option value="陶">陶瓷</option>
+        <option value="酒">啤酒</option>
+      </optgroup>
+      <optgroup label="雙產業（棉花+）">
+        <option value="棉/工">棉/工</option>
+        <option value="棉/煤">棉/煤</option>
+        <option value="棉/鐵">棉/鐵</option>
+        <option value="棉/陶">棉/陶</option>
+        <option value="棉/酒">棉/酒</option>
+      </optgroup>
+      <optgroup label="雙產業（煤礦+）">
+        <option value="煤/工">煤/工</option>
+        <option value="煤/鐵">煤/鐵</option>
+        <option value="煤/陶">煤/陶</option>
+        <option value="煤/酒">煤/酒</option>
+      </optgroup>
+      <optgroup label="雙產業（鐵廠+）">
+        <option value="鐵/工">鐵/工</option>
+        <option value="鐵/陶">鐵/陶</option>
+        <option value="鐵/酒">鐵/酒</option>
+      </optgroup>
+      <optgroup label="雙產業（工廠+）">
+        <option value="工/棉">工/棉</option>
+        <option value="工/煤">工/煤</option>
+        <option value="工/鐵">工/鐵</option>
+        <option value="工/陶">工/陶</option>
+        <option value="工/酒">工/酒</option>
+      </optgroup>
+      <optgroup label="雙產業（陶瓷+）">
+        <option value="陶/工">陶/工</option>
+        <option value="陶/酒">陶/酒</option>
+      </optgroup>
+      <optgroup label="雙產業（啤酒+）">
+        <option value="酒/工">酒/工</option>
+        <option value="酒/棉">酒/棉</option>
+      </optgroup>
     </select>
   </div>
   <button class="btn-green" onclick="copyOutput()">複製座標</button>
@@ -49,7 +76,7 @@ canvas.width = 1000; canvas.height = 1000;
 canvas.style.width = '100vh'; canvas.style.height = '100vh';
 canvas.style.margin = '0 auto'; canvas.style.display = 'block';
 
-let SLOT_W = 32, SLOT_H = 32, SLOT_GAP = 4;
+let SLOT_W = 42, SLOT_H = 42, SLOT_GAP = 4;
 
 function changeSize(val) {
   SLOT_W = SLOT_H = parseInt(val);
@@ -69,7 +96,10 @@ function changeType(val) {
 }
 
 // 每個格子的產業類型
-const SLOT_TYPES = {"leek":["棉/工","煤"],"stoke-on-trent":["陶/工","鐵","工/棉"],"stone":["棉/工","酒"],"uttoxeter":["棉/工","酒"],"stafford":["陶/工","工"],"cannock":["煤","工"],"burton":["酒","煤/工"],"tamworth":["棉/工","煤"],"walsall":["工/鐵","酒"],"wolverhampton":["工","煤/工"],"coalbrookdale":["鐵","煤/鐵","酒"],"birmingham":["棉/工","工","鐵/工","工"],"dudley":["煤","鐵"],"derby":["棉/工","酒","工"],"belper":["棉/工","煤"],"nuneaton":["棉/工","酒"],"coventry":["陶/工","鐵/工","工"],"kidderminster":["棉/工","煤"],"worcester":["棉/工","棉/工"],"redditch":["工/煤","鐵"],"farm-brewery-cannock":["酒"],"farm-brewery-kidwor":["酒"]};
+const SLOT_TYPES = {"leek":["棉/工","煤/工"],"stoke-on-trent":["陶/工","鐵","工/棉"],"stone":["棉/工","工/煤"],"uttoxeter":["棉/工","酒"],"stafford":["陶/工","工"],"cannock":["煤","工"],"burton":["酒","煤/工"],"tamworth":["棉/工","煤"],"walsall":["工/鐵","酒"],"wolverhampton":["工","煤/工"],"coalbrookdale":["鐵","煤/鐵","酒"],"birmingham":["棉/工","工","鐵/工","工"],"dudley":["煤","鐵"],"derby":["棉/工","棉/酒","鐵"],"belper":["棉/工","煤","陶"],"nuneaton":["棉/工","酒"],"coventry":["陶/工","鐵/工","工"],"kidderminster":["棉/工","煤"],"worcester":["棉/工","棉/工"],"redditch":["工/煤","鐵"],"farm-brewery-cannock":["酒"],"farm-brewery-kidwor":["酒"],
+  "merchant-shrewsbury":["商"],"merchant-gloucester":["商1","商2"],
+  "merchant-oxford":["商1","商2"],"merchant-warrington":["商1","商2"],
+  "merchant-nottingham":["商1","商2"]};
 
 // 產業簡稱顏色
 const TYPE_COLORS = {'棉':'#f0f0f0','煤':'#555','鐵':'#cd853f','工':'#deb887','陶':'#ff6347','酒':'#ffd700'};
@@ -79,10 +109,14 @@ const CITY_SLOTS = {
   'leek':2, 'stoke-on-trent':3, 'stone':2, 'uttoxeter':2,
   'stafford':2, 'cannock':2, 'burton':2, 'tamworth':2,
   'walsall':2, 'wolverhampton':2, 'coalbrookdale':3,
-  'birmingham':4, 'dudley':2, 'derby':3, 'belper':2,
+  'birmingham':4, 'dudley':2, 'derby':3, 'belper':3,
   'nuneaton':2, 'coventry':3, 'kidderminster':2,
   'worcester':2, 'redditch':2,
-  'farm-brewery-cannock':1, 'farm-brewery-kidwor':1
+  'farm-brewery-cannock':1, 'farm-brewery-kidwor':1,
+  // 商人格子
+  'merchant-shrewsbury':1, 'merchant-gloucester':2,
+  'merchant-oxford':2, 'merchant-warrington':2,
+  'merchant-nottingham':2
 };
 
 // 每個格子的獨立偏移：slotOffsets[cityId][slotIndex] = {x, y}
@@ -103,7 +137,7 @@ img.src = BOARD_IMAGE_SRC;
 img.onload = () => draw();
 
 function getSlotPos(cid, idx) {
-  const pos = BOARD_CITIES[cid];
+  const pos = BOARD_CITIES[cid] || BOARD_MERCHANTS[cid];
   if (!pos) return null;
   const n = CITY_SLOTS[cid] || 1;
   const totalW = n * (SLOT_W + SLOT_GAP) - SLOT_GAP;
@@ -122,7 +156,57 @@ function draw() {
     ctx.fillRect(0, 0, 1000, 1000);
   }
 
-  // 畫每個格子
+  // === 畫所有路線 ===
+  for (const conn of BOARD_CONNECTIONS) {
+    const a = BOARD_CITIES[conn.from] || BOARD_MERCHANTS[conn.from];
+    const b = BOARD_CITIES[conn.to] || BOARD_MERCHANTS[conn.to];
+    if (!a || !b) continue;
+
+    const isCanal = conn.type === 'canal';
+    const isRail = conn.type === 'rail';
+
+    ctx.save();
+    if (isCanal) {
+      ctx.strokeStyle = 'rgba(74,144,217,0.5)';
+      ctx.setLineDash([8, 4]);
+    } else if (isRail) {
+      ctx.strokeStyle = 'rgba(180,100,40,0.5)';
+      ctx.setLineDash([4, 4]);
+    } else {
+      ctx.strokeStyle = 'rgba(200,200,200,0.3)';
+      ctx.setLineDash([]);
+    }
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.stroke();
+    ctx.restore();
+
+    // 路線中點標籤
+    const mx = (a.x + b.x) / 2;
+    const my = (a.y + b.y) / 2;
+    if (isCanal || isRail) {
+      ctx.fillStyle = isCanal ? 'rgba(74,144,217,0.6)' : 'rgba(180,100,40,0.6)';
+      ctx.beginPath(); ctx.arc(mx, my, 5, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.font = '7px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText(isCanal ? 'C' : 'R', mx, my + 3);
+    }
+  }
+
+  // === 畫啤酒桶（商人旁邊）===
+  for (const [mid, mpos] of Object.entries(BOARD_MERCHANTS)) {
+    const n = CITY_SLOTS[mid] || 0;
+    for (let i = 0; i < n; i++) {
+      const sp = getSlotPos(mid, i);
+      if (!sp) continue;
+      // 啤酒桶在格子下方
+      ctx.font = '16px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('🍺', sp.x + SLOT_W/2, sp.y + SLOT_H + 16);
+    }
+  }
+
+  // === 畫每個格子 ===
   for (const [cid, n] of Object.entries(CITY_SLOTS)) {
     for (let i = 0; i < n; i++) {
       const sp = getSlotPos(cid, i);
@@ -164,7 +248,7 @@ function draw() {
     }
 
     // 城市名（在格子上方）
-    const pos = BOARD_CITIES[cid];
+    const pos = BOARD_CITIES[cid] || BOARD_MERCHANTS[cid];
     if (pos) {
       ctx.fillStyle = 'rgba(255,255,255,0.5)';
       ctx.font = '8px sans-serif'; ctx.textAlign = 'center';
@@ -187,6 +271,7 @@ canvas.addEventListener('click', (e) => {
   const my = (e.clientY - rect.top) * (1000 / rect.height);
 
   selectedSlot = null;
+  // 搜尋城市和商人格子
   for (const [cid, n] of Object.entries(CITY_SLOTS)) {
     for (let i = 0; i < n; i++) {
       const sp = getSlotPos(cid, i);

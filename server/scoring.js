@@ -20,28 +20,33 @@ function scoreLinkVP(link, board) {
   return vp;
 }
 
-// Score all links for a player
+// Score all links for a player (with detailed breakdown)
 function scorePlayerLinks(gameState, playerId) {
   let totalVP = 0;
+  const details = [];
   for (const link of gameState.links) {
     if (link.owner === playerId) {
-      totalVP += scoreLinkVP(link, gameState.board);
+      const vp = scoreLinkVP(link, gameState.board);
+      totalVP += vp;
+      details.push({ from: link.from, to: link.to, vp, type: link.type });
     }
   }
-  return totalVP;
+  return { total: totalVP, details };
 }
 
-// Score all flipped industries for a player
+// Score all flipped industries for a player (with detailed breakdown)
 function scorePlayerIndustries(gameState, playerId) {
   let totalVP = 0;
+  const details = [];
   for (const [locId, loc] of Object.entries(gameState.board)) {
     for (const slot of loc.slots) {
       if (slot.built && slot.built.owner === playerId && slot.built.flipped) {
         totalVP += slot.built.vp;
+        details.push({ location: locId, type: slot.built.type, level: slot.built.level, vp: slot.built.vp });
       }
     }
   }
-  return totalVP;
+  return { total: totalVP, details };
 }
 
 // End of Canal Era scoring and cleanup
@@ -49,19 +54,19 @@ function scoreCanalEra(gameState) {
   const scores = {};
 
   for (const playerId of Object.keys(gameState.players)) {
-    const linkVP = scorePlayerLinks(gameState, playerId);
-    const industryVP = scorePlayerIndustries(gameState, playerId);
-    scores[playerId] = { linkVP, industryVP, total: linkVP + industryVP };
-    gameState.players[playerId].vp += linkVP + industryVP;
+    const linkResult = scorePlayerLinks(gameState, playerId);
+    const industryResult = scorePlayerIndustries(gameState, playerId);
+    scores[playerId] = {
+      linkVP: linkResult.total,
+      industryVP: industryResult.total,
+      total: linkResult.total + industryResult.total,
+      linkDetails: linkResult.details,
+      industryDetails: industryResult.details
+    };
+    gameState.players[playerId].vp += linkResult.total + industryResult.total;
   }
 
-  // Income phase: each player gets income based on their income level
-  for (const playerId of Object.keys(gameState.players)) {
-    const player = gameState.players[playerId];
-    const income = getIncomeLevel(player.trackPos);
-    player.money += income;
-    if (player.money < 0) player.money = 0;
-  }
+  // 注意：收入階段由 BrassGame.endRound() 處理，此處不再重複發放
 
   // Remove all canal-era links
   gameState.links = gameState.links.filter(l => l.type !== 'canal');
@@ -83,10 +88,16 @@ function scoreRailEra(gameState) {
   const scores = {};
 
   for (const playerId of Object.keys(gameState.players)) {
-    const linkVP = scorePlayerLinks(gameState, playerId);
-    const industryVP = scorePlayerIndustries(gameState, playerId);
-    scores[playerId] = { linkVP, industryVP, total: linkVP + industryVP };
-    gameState.players[playerId].vp += linkVP + industryVP;
+    const linkResult = scorePlayerLinks(gameState, playerId);
+    const industryResult = scorePlayerIndustries(gameState, playerId);
+    scores[playerId] = {
+      linkVP: linkResult.total,
+      industryVP: industryResult.total,
+      total: linkResult.total + industryResult.total,
+      linkDetails: linkResult.details,
+      industryDetails: industryResult.details
+    };
+    gameState.players[playerId].vp += linkResult.total + industryResult.total;
   }
 
   // Determine winner

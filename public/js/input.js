@@ -33,7 +33,7 @@ class InputHandler {
         this.renderer.hoveredMerchant = merchant;
         needRender = true;
       }
-      if (needRender && this.gameState) this.renderer.render(this.gameState);
+      if (needRender && this.gameState) this.renderer.scheduleRender(this.gameState);
     });
     canvas.addEventListener('click', (e) => {
       if (this.renderer.isPanning) return;
@@ -99,8 +99,10 @@ class InputHandler {
         if (this.ui.actionState.links.length >= maxLinks) {
           this.updateNetworkDetail();
         } else {
+          // 鐵路時代：已選1條時，可選擇確認或繼續選第2條
           this.ui.showActionDetail('建路',
-            `已選 ${this.ui.actionState.links.length}/${maxLinks} 條路<br>點擊下一條路的起點`);
+            `已選 ${this.ui.actionState.links.length}/${maxLinks} 條路<br>` +
+            `點擊下一條路的起點，或直接點「確認」只建 1 條`);
         }
       }
       if (this.gameState) this.renderer.render(this.gameState);
@@ -117,14 +119,35 @@ class InputHandler {
           sellable.push({ locationId: cityId, slotIndex: idx });
         }
       });
-      if (sellable.length > 0) {
-        for (const s of sellable) {
+      if (sellable.length === 0) return;
+
+      if (sellable.length === 1) {
+        // 只有一個可賣，直接 toggle
+        const s = sellable[0];
+        const existing = this.ui.actionState.sales.findIndex(
+          x => x.locationId === s.locationId && x.slotIndex === s.slotIndex);
+        if (existing >= 0) this.ui.actionState.sales.splice(existing, 1);
+        else this.ui.actionState.sales.push(s);
+        this.updateSellDetail();
+      } else {
+        // 多個可賣建築，讓玩家逐個選擇
+        const options = sellable.map(s => {
+          const slot = cityData.slots[s.slotIndex];
+          const d = INDUSTRY_DISPLAY[slot.built.type];
+          const already = this.ui.actionState.sales.some(
+            x => x.locationId === s.locationId && x.slotIndex === s.slotIndex);
+          return {
+            label: `${d.label} Lv${slot.built.level}${already ? '（已選，點擊取消）' : ''}`,
+            value: s
+          };
+        });
+        this.ui.showSelection(`${cityData.name} — 選擇要販賣的建築`, options, (s) => {
           const existing = this.ui.actionState.sales.findIndex(
             x => x.locationId === s.locationId && x.slotIndex === s.slotIndex);
           if (existing >= 0) this.ui.actionState.sales.splice(existing, 1);
           else this.ui.actionState.sales.push(s);
-        }
-        this.updateSellDetail();
+          this.updateSellDetail();
+        });
       }
     }
   }
@@ -184,7 +207,7 @@ class InputHandler {
           } else {
             html += '選擇要建造的產業：<br>';
             for (const t of slot.types) {
-              html += `<button class="selection-option" style="margin:4px 2px;font-size:0.95em" onclick="window.inputHandler.selectIndustryType('${t}')">${INDUSTRY_DISPLAY[t].label}</button> `;
+              html += `<button class="selection-option ind-type-btn" data-ind-type="${t}" style="margin:4px 2px;font-size:0.95em">${INDUSTRY_DISPLAY[t].label}</button> `;
             }
           }
         } else {
@@ -198,6 +221,10 @@ class InputHandler {
       html += '<span style="color:var(--text-dim)">請點擊城市中的格子</span>';
     }
     this.ui.showActionDetail('建造', html);
+    // 綁定產業類型按鈕事件（取代 inline onclick）
+    document.querySelectorAll('.ind-type-btn').forEach(btn => {
+      btn.addEventListener('click', () => this.selectIndustryType(btn.dataset.indType));
+    });
   }
 
   // 顯示建造費用資訊
@@ -397,7 +424,7 @@ class InputHandler {
                    card.name;
       const bg = isSelected ? 'var(--accent)' : 'rgba(255,255,255,0.08)';
       const border = isSelected ? 'var(--accent)' : 'rgba(255,255,255,0.15)';
-      html += `<div onclick="window.inputHandler.toggleScoutCard(${i})" style="padding:5px 10px;border-radius:6px;cursor:pointer;background:${bg};border:1px solid ${border};font-size:0.9em">${name}</div>`;
+      html += `<div class="scout-card-btn" data-card-idx="${i}" style="padding:5px 10px;border-radius:6px;cursor:pointer;background:${bg};border:1px solid ${border};font-size:0.9em">${escHtml(name)}</div>`;
     }
     html += '</div>';
 
@@ -408,6 +435,10 @@ class InputHandler {
     }
 
     this.ui.showActionDetail('偵查', html);
+    // 綁定偵查卡牌按鈕事件（取代 inline onclick）
+    document.querySelectorAll('.scout-card-btn').forEach(btn => {
+      btn.addEventListener('click', () => this.toggleScoutCard(parseInt(btn.dataset.cardIdx)));
+    });
   }
 
   toggleScoutCard(index) {

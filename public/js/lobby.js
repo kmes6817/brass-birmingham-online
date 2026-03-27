@@ -113,14 +113,15 @@ class Lobby {
       d.innerHTML = `
         <div style="display:flex;align-items:center;gap:8px">
           <div style="width:10px;height:10px;border-radius:50%;background:${col}"></div>
-          <span class="p-name">${p.name}</span>
+          <span class="p-name">${p.name.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span>
         </div>
         <span class="ready-badge ${p.connected === false ? 'no' : p.ready ? 'yes' : 'no'}">${p.connected === false ? '\u26A0 離線' : p.ready ? '\u2713 已準備' : '等待中...'}</span>
       `;
       c.appendChild(d);
     });
 
-    const me = data.players.find(p => p.id === this.socket.id);
+    const storedPid = sessionStorage.getItem('brass_playerId');
+    const me = data.players.find(p => p.id === storedPid || p.id === this.socket.id);
     const rb = document.getElementById('btn-ready');
     if (me && me.ready) {
       rb.classList.add('ready');

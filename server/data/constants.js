@@ -13,43 +13,50 @@ const INDUSTRY_TYPES = {
 
 // ==============================
 // 收入軌道（變速間距）
-// 等級越高，每級佔越多格 → 越難爬
-// -10~0: 每級1格 (11格)
-//  1~10: 每級2格 (20格)
-// 11~20: 每級3格 (30格)
-// 21~30: 每級4格 (40格)
-// 共 101 格（位置 0-100）
+// 位置 0-99（共 100 格），開局位置 10（收入 £0）
+//  0~10:  每1格升降1收入  (11格, 收入 -10 ~ 0)
+// 11~30:  每2格升降1收入  (20格, 收入 1 ~ 10)
+// 31~60:  每3格升降1收入  (30格, 收入 11 ~ 20)
+// 61~96:  每4格升降1收入  (36格, 收入 21 ~ 29)
+// 97~99:  收入30           (3格)
 // ==============================
 const INCOME_TRACK = [];
-// -10 to 0: 每級1格
+// -10 to 0: 每級1格 (位置 0-10)
 for (let i = -10; i <= 0; i++) INCOME_TRACK.push(i);
-// 1 to 10: 每級2格
+// 1 to 10: 每級2格 (位置 11-30)
 for (let i = 1; i <= 10; i++) { INCOME_TRACK.push(i); INCOME_TRACK.push(i); }
-// 11 to 20: 每級3格
+// 11 to 20: 每級3格 (位置 31-60)
 for (let i = 11; i <= 20; i++) { INCOME_TRACK.push(i); INCOME_TRACK.push(i); INCOME_TRACK.push(i); }
-// 21 to 30: 每級4格
-for (let i = 21; i <= 30; i++) { INCOME_TRACK.push(i); INCOME_TRACK.push(i); INCOME_TRACK.push(i); INCOME_TRACK.push(i); }
+// 21 to 29: 每級4格 (位置 61-96)
+for (let i = 21; i <= 29; i++) { INCOME_TRACK.push(i); INCOME_TRACK.push(i); INCOME_TRACK.push(i); INCOME_TRACK.push(i); }
+// 30: 3格 (位置 97-99)
+INCOME_TRACK.push(30); INCOME_TRACK.push(30); INCOME_TRACK.push(30);
 
-// 起始位置 = 格10 = 收入等級 0 = 每回合收 £0
+// 起始位置 = 格10 = 收入 £0
 const STARTING_TRACK_POS = 10;
 const MIN_INCOME_LEVEL = -10;
 
-// 工具函數：從軌道位置取得收入等級
+// 工具函數：從軌道位置取得收入金額
 function getIncomeLevel(pos) {
   const clamped = Math.max(0, Math.min(pos, INCOME_TRACK.length - 1));
   return INCOME_TRACK[clamped];
 }
 
-// 工具函數：借貸後退3等級，停在新等級的最高格
+// 工具函數：借貸降低收入 3（不是等級 3）
+// 例：收入 £20 → £17，移到 £17 的最高格
+// 收入低於 -10 時 clamp 到位置 0（收入 -10）
 function loanDecreasePosition(currentPos) {
-  const currentLevel = getIncomeLevel(currentPos);
-  const targetLevel = currentLevel - 3;
-  if (targetLevel < MIN_INCOME_LEVEL) return -1; // 不允許借貸
+  const currentIncome = getIncomeLevel(currentPos);
+  const targetIncome = currentIncome - 3;
 
-  // 找到 targetLevel 的最高格（最後一個值等於 targetLevel 的位置）
+  if (targetIncome <= MIN_INCOME_LEVEL) {
+    return 0; // clamp 到位置 0（收入 -10），不拒絕貸款
+  }
+
+  // 找到 targetIncome 的最高格（最後一個值等於 targetIncome 的位置）
   let highestPos = 0;
   for (let p = INCOME_TRACK.length - 1; p >= 0; p--) {
-    if (INCOME_TRACK[p] === targetLevel) { highestPos = p; break; }
+    if (INCOME_TRACK[p] === targetIncome) { highestPos = p; break; }
   }
   return highestPos;
 }

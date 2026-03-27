@@ -79,36 +79,107 @@ class BrassGame {
 
   setupMerchants() {
     const { INDUSTRY_TYPES: T } = require('./data/constants');
-    // 商人板塊池（根據玩家數量移除部分）
-    const allTileTypes = [
-      [T.COTTON], [T.COTTON],
-      [T.MANUFACTURER], [T.MANUFACTURER],
-      [T.COTTON, T.MANUFACTURER], [T.COTTON, T.MANUFACTURER],
-      [T.POTTERY], [T.POTTERY]
-    ];
-    // 洗牌
-    for (let i = allTileTypes.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [allTileTypes[i], allTileTypes[j]] = [allTileTypes[j], allTileTypes[i]];
+
+    // 貿易商板塊池
+    // 貨物=manufacturer, 棉花=cotton, 陶瓷=pottery, 休市=closed
+    let tilePool;
+    if (this.playerCount >= 4) {
+      // 4人：9片
+      tilePool = [
+        'closed', 'closed', 'closed',
+        'manufacturer', 'manufacturer',
+        'cotton', 'cotton',
+        'pottery',
+        'wild' // (貨物/棉花/陶瓷) 萬用
+      ];
+    } else if (this.playerCount === 3) {
+      // 3人：7片（關閉 Nottingham）
+      tilePool = [
+        'closed', 'closed', 'closed',
+        'manufacturer',
+        'cotton',
+        'pottery',
+        'wild'
+      ];
+    } else {
+      // 2人：5片（關閉 Warrington + Nottingham）
+      tilePool = [
+        'closed', 'closed',
+        'manufacturer',
+        'cotton',
+        'wild'
+      ];
     }
 
-    // 根據玩家數決定哪些商人位置啟用
-    // 2人：不放 Warrington 和 Nottingham
-    // 3人：不放 Nottingham
-    for (let i = 0; i < this.merchants.length; i++) {
-      const m = this.merchants[i];
-      const skip2 = (this.playerCount <= 2 && (m.id === 'merchant-warrington' || m.id === 'merchant-nottingham'));
-      const skip3 = (this.playerCount <= 3 && m.id === 'merchant-nottingham');
+    // 洗牌
+    for (let i = tilePool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [tilePool[i], tilePool[j]] = [tilePool[j], tilePool[i]];
+    }
 
-      if (skip2 || skip3) {
+    // 每個商人位置的板塊格數（依人數）
+    const slotsPerMerchant = {
+      'merchant-shrewsbury': this.playerCount >= 4 ? 2 : this.playerCount >= 3 ? 2 : 1,
+      'merchant-gloucester':  this.playerCount >= 4 ? 2 : this.playerCount >= 3 ? 2 : 1,
+      'merchant-oxford':      this.playerCount >= 4 ? 2 : this.playerCount >= 3 ? 1 : 1,
+      'merchant-warrington':  this.playerCount >= 4 ? 2 : this.playerCount >= 3 ? 2 : 0,
+      'merchant-nottingham':  this.playerCount >= 4 ? 1 : 0,
+    };
+
+    for (const m of this.merchants) {
+      const numSlots = slotsPerMerchant[m.id] || 0;
+      if (numSlots === 0) {
         m.active = false;
         m.accepts = [];
+        m.tiles = [];
         m.beer = 0;
-      } else {
-        m.active = true;
-        m.accepts = allTileTypes.pop() || [T.COTTON, T.MANUFACTURER];
-        m.beer = 1; // 每個商人旁邊 1 桶啤酒
+        continue;
       }
+
+      m.active = true;
+      m.tiles = []; // 每個板塊格獨立
+      m.accepts = []; // 彙總所有接受的類型
+
+      for (let s = 0; s < numSlots; s++) {
+        const tile = tilePool.pop() || 'closed';
+        let accepts;
+        let hasBeer;
+
+        if (tile === 'closed') {
+          accepts = [];
+          hasBeer = false;
+        } else if (tile === 'wild') {
+          accepts = [T.MANUFACTURER, T.COTTON, T.POTTERY];
+          hasBeer = true;
+        } else if (tile === 'manufacturer') {
+          accepts = [T.MANUFACTURER];
+          hasBeer = true;
+        } else if (tile === 'cotton') {
+          accepts = [T.COTTON];
+          hasBeer = true;
+        } else if (tile === 'pottery') {
+          accepts = [T.POTTERY];
+          hasBeer = true;
+        } else {
+          accepts = [];
+          hasBeer = false;
+        }
+
+        m.tiles.push({
+          type: tile,
+          accepts,
+          beer: hasBeer ? 1 : 0,
+          used: false // 販賣後標記已用
+        });
+
+        // 彙總
+        for (const a of accepts) {
+          if (!m.accepts.includes(a)) m.accepts.push(a);
+        }
+      }
+
+      // 總啤酒數 = 有啤酒的板塊數
+      m.beer = m.tiles.filter(t => t.beer > 0).length;
     }
   }
 
@@ -217,15 +288,6 @@ class BrassGame {
       }
     }
 
-    // 檢查是否有待處理的獎勵（如免費研發）
-    if (result.success) {
-      const gameState = { _pendingBonus: {} };
-      // pendingBonus 可能在 actions 中被設定
-      if (this._pendingBonus && this._pendingBonus[playerId]) {
-        // 已有 pending bonus
-      }
-    }
-
     return result;
   }
 
@@ -233,6 +295,11 @@ class BrassGame {
   executeFreeDevelop(playerId, industryType) {
     const player = this.players[playerId];
     if (!player) return { success: false, reason: '玩家不存在' };
+
+    // 必須有待處理的免費研發獎勵
+    if (!this.pendingBonus || !this.pendingBonus[playerId]) {
+      return { success: false, reason: '沒有待處理的免費研發獎勵' };
+    }
 
     const tiles = player.tiles[industryType];
     if (!tiles || tiles.length === 0) {
@@ -245,20 +312,31 @@ class BrassGame {
     }
 
     const removed = tiles.shift();
+    // 清除已使用的 pendingBonus
+    delete this.pendingBonus[playerId];
     this.addLog(`${player.name}：免費研發獎勵 — 移除了 ${industryType} Lv${removed.level}`);
     return { success: true };
   }
 
   // Pass action (use an action without doing anything - player must still discard)
   executePass(playerId, cardIndex) {
+    if (this.gameOver) {
+      return { success: false, reason: '遊戲已結束' };
+    }
     if (playerId !== this.getCurrentPlayerId()) {
       return { success: false, reason: '不是你的回合' };
     }
+    if (this.getActionsRemaining() <= 0) {
+      return { success: false, reason: '沒有剩餘的行動' };
+    }
 
     const player = this.getCurrentPlayer();
-    if (cardIndex !== undefined && player.hand[cardIndex]) {
-      player.hand.splice(cardIndex, 1);
+
+    // 跳過仍然必須棄一張牌
+    if (cardIndex === undefined || cardIndex === null || !player.hand[cardIndex]) {
+      return { success: false, reason: '跳過時必須棄掉一張手牌' };
     }
+    player.hand.splice(cardIndex, 1);
 
     player.actionsThisTurn++;
     this.addLog(`${player.name} [行動${player.actionsThisTurn}]：跳過（免費）`);
@@ -387,6 +465,9 @@ class BrassGame {
 
       const scores = scoreCanalEra(gameState);
 
+      // 保存計分動畫數據
+      this.scoringAnimation = { era: 'canal', scores };
+
       // Sync state back
       this.links = gameState.links;
 
@@ -399,10 +480,7 @@ class BrassGame {
       this.round = 1;
       this.deck = createDeck(this.playerCount);
 
-      // 補充商人啤酒桶（規則：鐵路時代開始時，每個活躍商人旁補1桶啤酒）
-      for (const m of this.merchants) {
-        if (m.active) m.beer = 1;
-      }
+      // 注意：鐵路時代開始時不重置商人啤酒（官方規則：運河時代消耗的啤酒不會補充）
 
       for (const pid of this.turnOrder) {
         this.players[pid].hand = dealCards(this.deck, HAND_SIZE);
@@ -431,6 +509,9 @@ class BrassGame {
 
       const { scores, winner } = scoreRailEra(gameState);
 
+      // 保存計分動畫數據
+      this.scoringAnimation = { era: 'rail', scores };
+
       for (const [pid, score] of Object.entries(scores)) {
         this.addLog(`${this.players[pid].name}：路線 +${score.linkVP} 分，產業 +${score.industryVP} 分 = 共 ${this.players[pid].vp} 分`);
       }
@@ -441,30 +522,12 @@ class BrassGame {
     }
   }
 
-  // Get sanitized state for a specific player (hide other hands)
-  getStateForPlayer(playerId) {
-    const state = {
-      era: this.era,
-      round: this.round,
-      currentPlayerId: this.getCurrentPlayerId(),
-      actionsRemaining: this.getActionsRemaining(),
-      turnOrder: this.turnOrder,
-      gameOver: this.gameOver,
-      winner: this.winner,
-      board: this.board,
-      links: this.links,
-      coalMarket: this.coalMarket,
-      ironMarket: this.ironMarket,
-      merchants: this.merchants,
-      deckCount: this.deck.length,
-      pendingBonus: (this.pendingBonus && this.pendingBonus[playerId]) || null,
-      log: this.log.slice(-50),
-      players: {},
-      myHand: this.players[playerId] ? this.players[playerId].hand : []
-    };
-
+  // 建立共用狀態（所有玩家相同的部分）— 快取直到狀態變化
+  getSharedState() {
+    const currentPid = this.getCurrentPlayerId();
+    const players = {};
     for (const [pid, player] of Object.entries(this.players)) {
-      state.players[pid] = {
+      players[pid] = {
         id: player.id,
         name: player.name,
         money: player.money,
@@ -476,11 +539,38 @@ class BrassGame {
         tiles: player.tiles,
         actionsThisTurn: player.actionsThisTurn,
         spentThisRound: player.spentThisRound || 0,
-        isCurrentPlayer: pid === this.getCurrentPlayerId()
+        isCurrentPlayer: pid === currentPid
       };
     }
 
-    return state;
+    return {
+      era: this.era,
+      round: this.round,
+      currentPlayerId: currentPid,
+      actionsRemaining: this.getActionsRemaining(),
+      turnOrder: this.turnOrder,
+      gameOver: this.gameOver,
+      winner: this.winner,
+      board: this.board,
+      links: this.links,
+      coalMarket: this.coalMarket,
+      ironMarket: this.ironMarket,
+      merchants: this.merchants,
+      deckCount: this.deck.length,
+      scoringAnimation: this.scoringAnimation || null,
+      log: this.log.slice(-50),
+      players
+    };
+  }
+
+  // Get sanitized state for a specific player (hide other hands)
+  getStateForPlayer(playerId, sharedState) {
+    const base = sharedState || this.getSharedState();
+    return {
+      ...base,
+      pendingBonus: (this.pendingBonus && this.pendingBonus[playerId]) || null,
+      myHand: this.players[playerId] ? this.players[playerId].hand : []
+    };
   }
 }
 

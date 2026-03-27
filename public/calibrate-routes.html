@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>路線校正工具</title>
+<style>
+  body{margin:0;background:#111;color:#fff;font-family:sans-serif;overflow:hidden}
+  canvas{cursor:crosshair}
+  #info{position:fixed;top:10px;left:10px;background:rgba(0,0,0,.9);padding:12px;border-radius:8px;font-size:11px;z-index:10;max-width:300px}
+  #output{position:fixed;top:10px;right:10px;width:380px;background:rgba(0,0,0,.9);padding:10px;border-radius:8px;font-size:9px;max-height:90vh;overflow:auto;font-family:monospace;z-index:10;white-space:pre}
+  button{margin:2px;padding:4px 8px;border:none;border-radius:4px;cursor:pointer;font-size:11px;background:#d4a843;color:#000;font-weight:bold}
+  .btn-green{background:#3ba55d;color:#fff}
+  select{padding:4px;font-size:11px;background:#333;color:#fff;border:1px solid #555;border-radius:4px;max-width:200px}
+  .ctrl{margin:4px 0}
+  label{font-size:10px;color:#aaa}
+</style></head><body>
+<div id="info">
+  <b>路線校正</b><br>
+  選路線 → 調整端點和彎曲度<br><br>
+  路線：<select id="route-select" onchange="selectRoute(this.value)"></select><br>
+  <div id="route-ctrl" style="display:none;margin-top:8px">
+    <div class="ctrl">
+      <label>起點偏移X:</label> <input type="range" id="sx" min="-50" max="50" value="0" oninput="updateRoute()"> <span id="sx-v">0</span>
+    </div>
+    <div class="ctrl">
+      <label>起點偏移Y:</label> <input type="range" id="sy" min="-50" max="50" value="0" oninput="updateRoute()"> <span id="sy-v">0</span>
+    </div>
+    <div class="ctrl">
+      <label>終點偏移X:</label> <input type="range" id="ex" min="-50" max="50" value="0" oninput="updateRoute()"> <span id="ex-v">0</span>
+    </div>
+    <div class="ctrl">
+      <label>終點偏移Y:</label> <input type="range" id="ey" min="-50" max="50" value="0" oninput="updateRoute()"> <span id="ey-v">0</span>
+    </div>
+    <div class="ctrl">
+      <label>彎曲度:</label> <input type="range" id="curve" min="-80" max="80" value="0" oninput="updateRoute()"> <span id="curve-v">0</span>
+    </div>
+    <button onclick="resetRoute()">重置此路線</button>
+  </div>
+  <br>
+  <span id="status"></span><br><br>
+  <button class="btn-green" onclick="copyOutput()">複製座標</button>
+  <button onclick="resetAll()">全部重置</button>
+</div>
+<div id="output"></div>
+<canvas id="c"></canvas>
+
+<script src="/js/boardData.js?v=35"></script>
+<script src="/js/routeData.js?v=35"></script>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+canvas.width = 1000; canvas.height = 1000;
+canvas.style.width = '100vh'; canvas.style.height = '100vh';
+canvas.style.margin = '0 auto'; canvas.style.display = 'block';
+
+// 路線數據
+const routes = {};
+for (const conn of BOARD_CONNECTIONS) {
+  const key = conn.from + '|' + conn.to;
+  const existing = ROUTE_VISUAL[key] || ROUTE_VISUAL[conn.to+'|'+conn.from];
+  routes[key] = existing ? {...existing} : {
+    startOff: {x:0, y:0},
+    endOff: {x:0, y:0},
+    curve: 0,
+    type: conn.type
+  };
+  if (!routes[key].startOff) routes[key].startOff = {x:0,y:0};
+  if (!routes[key].endOff) routes[key].endOff = {x:0,y:0};
+}
+
+let selectedRoute = null;
+
+// 填入路線選單
+const sel = document.getElementById('route-select');
+const opt0 = document.createElement('option');
+opt0.value = ''; opt0.textContent = '-- 選擇路線 --';
+sel.appendChild(opt0);
+for (const key of Object.keys(routes)) {
+  const [from, to] = key.split('|');
+  const typeTag = routes[key].type === 'canal' ? '🔵' : routes[key].type === 'rail' ? '🟤' : '⚪';
+  const opt = document.createElement('option');
+  opt.value = key;
+  opt.textContent = typeTag + ' ' + from + ' ↔ ' + to;
+  sel.appendChild(opt);
+}
+
+function getPos(id) {
+  return BOARD_CITIES[id] || BOARD_MERCHANTS[id] || null;
+}
+
+const img = new Image();
+img.src = BOARD_IMAGE_SRC;
+img.onload = () => draw();
+
+function selectRoute(key) {
+  selectedRoute = key || null;
+  const ctrl = document.getElementById('route-ctrl');
+  if (selectedRoute && routes[selectedRoute]) {
+    ctrl.style.display = 'block';
+    const r = routes[selectedRoute];
+    document.getElementById('sx').value = r.startOff.x;
+    document.getElementById('sy').value = r.startOff.y;
+    document.getElementById('ex').value = r.endOff.x;
+    document.getElementById('ey').value = r.endOff.y;
+    document.getElementById('curve').value = r.curve || 0;
+    updateLabels();
+  } else {
+    ctrl.style.display = 'none';
+  }
+  draw();
+}
+
+function updateRoute() {
+  if (!selectedRoute) return;
+  const r = routes[selectedRoute];
+  r.startOff.x = +document.getElementById('sx').value;
+  r.startOff.y = +document.getElementById('sy').value;
+  r.endOff.x = +document.getElementById('ex').value;
+  r.endOff.y = +document.getElementById('ey').value;
+  r.curve = +document.getElementById('curve').value;
+  updateLabels();
+  draw();
+}
+
+function updateLabels() {
+  document.getElementById('sx-v').textContent = document.getElementById('sx').value;
+  document.getElementById('sy-v').textContent = document.getElementById('sy').value;
+  document.getElementById('ex-v').textContent = document.getElementById('ex').value;
+  document.getElementById('ey-v').textContent = document.getElementById('ey').value;
+  document.getElementById('curve-v').textContent = document.getElementById('curve').value;
+}
+
+function resetRoute() {
+  if (!selectedRoute) return;
+  routes[selectedRoute] = {startOff:{x:0,y:0},endOff:{x:0,y:0},curve:0,type:routes[selectedRoute].type};
+  selectRoute(selectedRoute);
+}
+
+function resetAll() {
+  for (const key of Object.keys(routes)) {
+    routes[key] = {startOff:{x:0,y:0},endOff:{x:0,y:0},curve:0,type:routes[key].type};
+  }
+  selectRoute(selectedRoute);
+}
+
+function draw() {
+  ctx.clearRect(0, 0, 1000, 1000);
+  if (img.complete) {
+    ctx.drawImage(img, 0, 0, 1000, 1000);
+    ctx.fillStyle = 'rgba(0,0,0,0.1)';
+    ctx.fillRect(0, 0, 1000, 1000);
+  }
+
+  // 畫所有路線
+  for (const [key, r] of Object.entries(routes)) {
+    const [fromId, toId] = key.split('|');
+    const a = getPos(fromId);
+    const b = getPos(toId);
+    if (!a || !b) continue;
+
+    const isSel = key === selectedRoute;
+    const ax = a.x + r.startOff.x;
+    const ay = a.y + r.startOff.y;
+    const bx = b.x + r.endOff.x;
+    const by = b.y + r.endOff.y;
+
+    // 路線顏色
+    const typeCol = r.type === 'canal' ? 'rgba(74,144,217,0.6)' :
+                    r.type === 'rail' ? 'rgba(139,69,19,0.6)' : 'rgba(200,200,200,0.4)';
+
+    ctx.strokeStyle = isSel ? '#0f0' : typeCol;
+    ctx.lineWidth = isSel ? 4 : 2;
+
+    ctx.beginPath();
+    if (r.curve) {
+      const mx = (ax+bx)/2, my = (ay+by)/2;
+      const dx = bx-ax, dy = by-ay;
+      const len = Math.sqrt(dx*dx+dy*dy)||1;
+      const nx = -dy/len, ny = dx/len;
+      const cx = mx + nx * r.curve;
+      const cy = my + ny * r.curve;
+      ctx.moveTo(ax, ay);
+      ctx.quadraticCurveTo(cx, cy, bx, by);
+    } else {
+      ctx.moveTo(ax, ay);
+      ctx.lineTo(bx, by);
+    }
+    ctx.stroke();
+
+    // 端點圓點
+    if (isSel) {
+      ctx.fillStyle = '#f00';
+      ctx.beginPath(); ctx.arc(ax, ay, 5, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#00f';
+      ctx.beginPath(); ctx.arc(bx, by, 5, 0, Math.PI*2); ctx.fill();
+      // 控制點
+      if (r.curve) {
+        const mx=(ax+bx)/2,my=(ay+by)/2;
+        const dx=bx-ax,dy=by-ay,len=Math.sqrt(dx*dx+dy*dy)||1;
+        const cx=mx+(-dy/len)*r.curve, cy=my+(dx/len)*r.curve;
+        ctx.fillStyle = '#ff0';
+        ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI*2); ctx.fill();
+      }
+    }
+  }
+
+  updateOutput();
+}
+
+function updateOutput() {
+  let out = 'const ROUTE_VISUAL = {\n';
+  let count = 0;
+  for (const [key, r] of Object.entries(routes)) {
+    if (r.startOff.x || r.startOff.y || r.endOff.x || r.endOff.y || r.curve) {
+      out += `  '${key}': { startOff:{x:${r.startOff.x},y:${r.startOff.y}}, endOff:{x:${r.endOff.x},y:${r.endOff.y}}, curve:${r.curve} },\n`;
+      count++;
+    }
+  }
+  out += '};\n';
+  out = `// ${count} 條路線有自訂視覺\n` + out;
+  document.getElementById('output').textContent = out;
+}
+
+function copyOutput() {
+  navigator.clipboard.writeText(document.getElementById('output').textContent).then(() => {
+    document.getElementById('status').textContent = '已複製！';
+  });
+}
+
+// 點擊選路線
+canvas.addEventListener('click', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) * (1000 / rect.width);
+  const my = (e.clientY - rect.top) * (1000 / rect.height);
+
+  let closest = null, closestDist = 30;
+  for (const [key, r] of Object.entries(routes)) {
+    const [fromId, toId] = key.split('|');
+    const a = getPos(fromId), b = getPos(toId);
+    if (!a || !b) continue;
+    // 點到線段距離
+    const ax=a.x+r.startOff.x, ay=a.y+r.startOff.y;
+    const bx=b.x+r.endOff.x, by=b.y+r.endOff.y;
+    const midX=(ax+bx)/2, midY=(ay+by)/2;
+    const d = Math.hypot(mx-midX, my-midY);
+    if (d < closestDist) { closestDist = d; closest = key; }
+  }
+  if (closest) {
+    selectedRoute = closest;
+    sel.value = closest;
+    selectRoute(closest);
+  }
+});
+</script></body></html>

@@ -18,11 +18,19 @@ app.get('/api/public-url', (req, res) => {
 });
 
 // === 玩家 ID 映射（斷線重連用）===
-// playerId (persistent) → { socketId, roomId, name }
+// playerId (persistent) → { socketId, roomId, name, token }
 const playerMap = new Map();
 
 function genPlayerId() {
   return crypto.randomBytes(8).toString('hex');
+}
+
+function genToken() {
+  return crypto.randomBytes(16).toString('hex');
+}
+
+function sanitizeName(name) {
+  return String(name || 'Player').replace(/[<>&"']/g, '').trim().slice(0, 20) || 'Player';
 }
 
 // 透過 playerId 找到對應的 socketId，用來發送訊息
@@ -38,9 +46,15 @@ io.on('connection', (socket) => {
   let playerName = null;
 
   // === 斷線重連 ===
-  socket.on('reconnect-attempt', ({ playerId: pid, roomId: rid }) => {
+  socket.on('reconnect-attempt', (data) => {
+    if (!data || typeof data !== 'object') { socket.emit('reconnect-failed'); return; }
+    const { playerId: pid, roomId: rid, token: tok } = data;
+
     const info = playerMap.get(pid);
     if (!info) { socket.emit('reconnect-failed'); return; }
+
+    // 驗證 reconnect token
+    if (!tok || tok !== info.token) { socket.emit('reconnect-failed'); return; }
 
     const room = gm.getRoom(rid || info.roomId);
     if (!room) { socket.emit('reconnect-failed'); return; }
@@ -56,6 +70,12 @@ io.on('connection', (socket) => {
     info.socketId = socket.id;
     playerInRoom.connected = true;
 
+    // 取消房間清理計時器
+    if (room._cleanupTimer) {
+      clearTimeout(room._cleanupTimer);
+      delete room._cleanupTimer;
+    }
+
     socket.join(currentRoom);
     console.log(`Reconnected: ${playerName} (${pid}) → socket ${socket.id}`);
 
@@ -68,20 +88,23 @@ io.on('connection', (socket) => {
       socket.emit('room-update', getRoomData(currentRoom));
     }
 
-    socket.emit('reconnect-success', { playerId, roomId: currentRoom, name: playerName });
+    socket.emit('reconnect-success', { playerId, roomId: currentRoom, name: playerName, token: info.token });
   });
 
   // === 建立房間 ===
   socket.on('create-room', (data) => {
-    const name = (typeof data === 'string' ? data : data.name) || 'Player';
-    const pid = (typeof data === 'object' && data.playerId) || genPlayerId();
+    if (!data) return;
+    const name = sanitizeName(typeof data === 'string' ? data : data.name);
+    // 永遠由伺服器生成 playerId，不信任客戶端
+    const pid = genPlayerId();
+    const token = genToken();
 
     playerName = name;
     playerId = pid;
     const roomId = gm.createRoom(playerId, playerName);
     currentRoom = roomId;
 
-    playerMap.set(playerId, { socketId: socket.id, roomId, name: playerName });
+    playerMap.set(playerId, { socketId: socket.id, roomId, name: playerName, token });
 
     // 標記連線狀態
     const room = gm.getRoom(roomId);
@@ -89,15 +112,18 @@ io.on('connection', (socket) => {
     if (p) p.connected = true;
 
     socket.join(roomId);
-    socket.emit('room-created', { roomId, playerId });
+    socket.emit('room-created', { roomId, playerId, token });
     socket.emit('room-update', getRoomData(roomId));
   });
 
   // === 加入房間 ===
   socket.on('join-room', (data) => {
+    if (!data || typeof data !== 'object') return;
     const roomId = (data.roomId || '').toUpperCase();
-    const name = data.name || 'Player';
-    const pid = data.playerId || genPlayerId();
+    const name = sanitizeName(data.name);
+    // 永遠由伺服器生成 playerId，不信任客戶端
+    const pid = genPlayerId();
+    const token = genToken();
 
     playerName = name;
     playerId = pid;
@@ -105,14 +131,14 @@ io.on('connection', (socket) => {
     const result = gm.joinRoom(roomId, playerId, playerName);
     if (result.success) {
       currentRoom = roomId;
-      playerMap.set(playerId, { socketId: socket.id, roomId, name: playerName });
+      playerMap.set(playerId, { socketId: socket.id, roomId, name: playerName, token });
 
       const room = gm.getRoom(roomId);
       const p = room.players.find(p => p.id === playerId);
       if (p) p.connected = true;
 
       socket.join(currentRoom);
-      socket.emit('room-joined', { roomId: currentRoom, playerId });
+      socket.emit('room-joined', { roomId: currentRoom, playerId, token });
       io.to(currentRoom).emit('room-update', getRoomData(currentRoom));
     } else {
       socket.emit('error-msg', result.reason);
@@ -138,12 +164,16 @@ io.on('connection', (socket) => {
   });
 
   // === 遊戲行動 ===
-  socket.on('game-action', ({ actionType, params }) => {
+  socket.on('game-action', (data) => {
+    if (!data || typeof data !== 'object') return;
     if (!currentRoom || !playerId) return;
     const room = gm.getRoom(currentRoom);
     if (!room || !room.game) return;
 
-    const result = room.game.executeAction(playerId, actionType, params);
+    const { actionType, params } = data;
+    if (typeof actionType !== 'string') return;
+
+    const result = room.game.executeAction(playerId, actionType, params || {});
     if (result.success) {
       broadcastGameState(currentRoom);
     } else {
@@ -152,11 +182,13 @@ io.on('connection', (socket) => {
   });
 
   // === 跳過 ===
-  socket.on('pass-action', ({ cardIndex }) => {
+  socket.on('pass-action', (data) => {
+    if (!data || typeof data !== 'object') return;
     if (!currentRoom || !playerId) return;
     const room = gm.getRoom(currentRoom);
     if (!room || !room.game) return;
 
+    const { cardIndex } = data;
     const result = room.game.executePass(playerId, cardIndex);
     if (result.success) {
       broadcastGameState(currentRoom);
@@ -166,10 +198,14 @@ io.on('connection', (socket) => {
   });
 
   // === 免費研發獎勵選擇 ===
-  socket.on('free-develop', ({ industryType }) => {
+  socket.on('free-develop', (data) => {
+    if (!data || typeof data !== 'object') return;
     if (!currentRoom || !playerId) return;
     const room = gm.getRoom(currentRoom);
     if (!room || !room.game) return;
+
+    const { industryType } = data;
+    if (typeof industryType !== 'string') return;
 
     const result = room.game.executeFreeDevelop(playerId, industryType);
     if (result.success) {
@@ -184,7 +220,10 @@ io.on('connection', (socket) => {
   // === 聊天 ===
   socket.on('chat', (message) => {
     if (!currentRoom) return;
-    io.to(currentRoom).emit('chat', { from: playerName, message });
+    if (typeof message !== 'string') return;
+    const sanitized = message.slice(0, 500).replace(/[<>]/g, '');
+    if (!sanitized) return;
+    io.to(currentRoom).emit('chat', { from: (playerName || 'Player').slice(0, 50), message: sanitized });
   });
 
   socket.on('get-rooms', () => {
@@ -200,10 +239,24 @@ io.on('connection', (socket) => {
         const p = room.players.find(p => p.id === playerId);
         if (p) p.connected = false;
 
-        // 如果遊戲還沒開始且所有人都斷線了，才清房間
-        if (!room.started && room.players.every(p => !p.connected)) {
-          console.log(`Room ${currentRoom} empty, removing`);
-          gm.rooms.delete(currentRoom);
+        const allDisconnected = room.players.every(p => !p.connected);
+
+        if (allDisconnected) {
+          if (!room.started) {
+            // 遊戲還沒開始，立即清除
+            console.log(`Room ${currentRoom} empty (not started), removing`);
+            cleanupRoom(currentRoom);
+          } else {
+            // 遊戲已開始，10 分鐘後清除（給重連機會）
+            console.log(`Room ${currentRoom} all disconnected, will cleanup in 10 min`);
+            room._cleanupTimer = setTimeout(() => {
+              const r = gm.getRoom(currentRoom);
+              if (r && r.players.every(p => !p.connected)) {
+                console.log(`Room ${currentRoom} cleanup after timeout`);
+                cleanupRoom(currentRoom);
+              }
+            }, 10 * 60 * 1000);
+          }
         } else {
           io.to(currentRoom).emit('room-update', getRoomData(currentRoom));
         }
@@ -211,6 +264,18 @@ io.on('connection', (socket) => {
     }
   });
 });
+
+function cleanupRoom(roomId) {
+  const room = gm.getRoom(roomId);
+  if (room) {
+    if (room._cleanupTimer) clearTimeout(room._cleanupTimer);
+    // 清除所有玩家的 playerMap 條目
+    for (const p of room.players) {
+      playerMap.delete(p.id);
+    }
+  }
+  gm.rooms.delete(roomId);
+}
 
 function getRoomData(roomId) {
   const room = gm.getRoom(roomId);
@@ -231,10 +296,12 @@ function getRoomData(roomId) {
 function broadcastGameState(roomId) {
   const room = gm.getRoom(roomId);
   if (!room || !room.game) return;
+  // 先建立共用狀態（一次），再為每個玩家覆蓋私有欄位
+  const shared = room.game.getSharedState();
   for (const player of room.players) {
     const socketId = getSocketId(player.id);
     if (socketId) {
-      const state = room.game.getStateForPlayer(player.id);
+      const state = room.game.getStateForPlayer(player.id, shared);
       io.to(socketId).emit('game-state', state);
     }
   }

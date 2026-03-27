@@ -1,5 +1,11 @@
 // UI 管理 - 工業革命：伯明翰（全中文版）
 
+// HTML 轉義（防 XSS）
+function escHtml(str) {
+  if (typeof str !== 'string') return '';
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
 class GameUI {
   constructor() {
     this.selectedCardIndex = -1;
@@ -19,7 +25,10 @@ class GameUI {
     this.updateHand(state);
     this.updateActionButtons(state, myPlayerId);
     this.updateLog(state);
-    if (state.gameOver) this.showGameOver(state);
+    if (state.gameOver && !this._gameOverShown) {
+      this._gameOverShown = true;
+      this.showGameOver(state);
+    }
   }
 
   /* ─── 頂部資訊列 ─── */
@@ -49,45 +58,73 @@ class GameUI {
     if (deckEl) deckEl.textContent = state.deckCount !== undefined ? state.deckCount : '?';
   }
 
-  /* ─── 玩家面板 ─── */
+  /* ─── 玩家面板（差量更新）─── */
   updatePlayerPanels(state, myPlayerId) {
     const c = document.getElementById('player-panels');
-    c.innerHTML = '';
+    const existing = c.children;
 
     state.turnOrder.forEach((pid, idx) => {
       const p = state.players[pid];
       const col = PLAYER_COLORS[idx];
-      const panel = document.createElement('div');
-      panel.className = 'player-panel';
-      if (p.isCurrentPlayer) panel.classList.add('current-turn');
-      if (pid === myPlayerId) panel.classList.add('is-me');
+      let panel = existing[idx];
 
-      panel.innerHTML = `
-        <div class="pp-header">
-          <div class="pp-dot" style="background:${col}"></div>
-          <div class="pp-name" style="color:${col}">${p.name}</div>
-          ${pid === myPlayerId ? '<div class="pp-me">自己</div>' : ''}
-        </div>
-        <div class="pp-stats">
-          <div class="pp-stat">\u00A3 <span class="val">${p.money}</span></div>
-          <div class="pp-stat">\u2605 <span class="val">${p.vp} 分</span></div>
-          <div class="pp-stat">\u2191 <span class="val">\u00A3${p.income}/輪</span></div>
-          <div class="pp-stat">\u2663 <span class="val">${p.handSize} 張牌</span></div>
-          <div class="pp-stat">\u{1F4B8} <span class="val" style="color:${p.spentThisRound > 0 ? '#f88' : 'var(--text-dim)'}">本輪花費 ${p.spentThisRound}</span></div>
-        </div>
-      `;
-      c.appendChild(panel);
+      if (!panel || panel.dataset.pid !== pid) {
+        // 結構變了（玩家順序改變），全量重建此面板
+        panel = document.createElement('div');
+        panel.className = 'player-panel';
+        panel.dataset.pid = pid;
+        panel.innerHTML = `
+          <div class="pp-header">
+            <div class="pp-dot" style="background:${col}"></div>
+            <div class="pp-name" style="color:${col}">${escHtml(p.name)}</div>
+            ${pid === myPlayerId ? '<div class="pp-me">自己</div>' : ''}
+          </div>
+          <div class="pp-stats">
+            <div class="pp-stat">\u00A3 <span class="val" data-f="money"></span></div>
+            <div class="pp-stat">\u2605 <span class="val" data-f="vp"></span></div>
+            <div class="pp-stat">\u2191 <span class="val" data-f="income"></span></div>
+            <div class="pp-stat">\u2663 <span class="val" data-f="hand"></span></div>
+            <div class="pp-stat">\u{1F4B8} <span class="val" data-f="spent"></span></div>
+          </div>
+        `;
+        if (existing[idx]) c.replaceChild(panel, existing[idx]);
+        else c.appendChild(panel);
+      }
+
+      // 差量更新 class
+      panel.classList.toggle('current-turn', !!p.isCurrentPlayer);
+      panel.classList.toggle('is-me', pid === myPlayerId);
+
+      // 差量更新數值
+      const setVal = (field, text, style) => {
+        const el = panel.querySelector(`[data-f="${field}"]`);
+        if (el) { el.textContent = text; if (style !== undefined) el.style.color = style; }
+      };
+      setVal('money', p.money);
+      setVal('vp', p.vp + ' 分');
+      setVal('income', '\u00A3' + p.income + '/輪');
+      setVal('hand', p.handSize + ' 張牌');
+      setVal('spent', '本輪花費 ' + p.spentThisRound, p.spentThisRound > 0 ? '#f88' : 'var(--text-dim)');
     });
+
+    // 移除多餘面板
+    while (c.children.length > state.turnOrder.length) {
+      c.removeChild(c.lastChild);
+    }
   }
 
-  /* ─── 我的產業板塊（Steam 風格面板）─── */
+  /* ─── 我的產業板塊（Steam 風格面板，差量更新）─── */
   updateMyTiles(state, myPlayerId) {
     const c = document.getElementById('my-tiles-content');
     if (!c) return;
-    c.innerHTML = '';
 
+    // 快速指紋：每種產業的數量+最低等級，變化時才重建
     const me = state.players[myPlayerId];
-    if (!me) return;
+    if (!me) { c.innerHTML = ''; return; }
+    const fp = JSON.stringify(Object.entries(me.tiles).map(([t, arr]) => [t, arr.length, arr[0]?.level]));
+    if (c.dataset.fp === fp) return; // 沒變，跳過
+    c.dataset.fp = fp;
+    c.innerHTML = '';
 
     const era = state.era;
     const ROMAN = ['','I','II','III','IV','V','VI','VII','VIII'];
@@ -197,7 +234,7 @@ class GameUI {
     infoDiv.innerHTML =
       `收入等級 <b style="color:var(--gold)">${myLevel}</b>` +
       ` = 每回合 <b style="color:${myLevel >= 0 ? 'var(--green)' : 'var(--accent)'}">\u00A3${myLevel}</b>` +
-      `<br><span style="color:var(--text-dim);font-size:.85em">軌道格 ${myPos}  |  借貸退3級=${myLevel >= -7 ? '→£'+(myLevel-3) : '禁止'}</span>`;
+      `<br><span style="color:var(--text-dim);font-size:.85em">軌道格 ${myPos}  |  借貸降收入3=→£${Math.max(myLevel-3, -10)}</span>`;
     c.appendChild(infoDiv);
 
     // 軌道：按等級顯示（每級不同寬度代表格數）
@@ -214,7 +251,7 @@ class GameUI {
 
     for (let val = -10; val <= 30; val++) {
       // 每級的格數
-      const spacesPerLevel = val <= 0 ? 1 : val <= 10 ? 2 : val <= 20 ? 3 : 4;
+      const spacesPerLevel = val <= 0 ? 1 : val <= 10 ? 2 : val <= 20 ? 3 : val <= 29 ? 4 : 3;
       const cell = document.createElement('div');
       cell.className = 'it-cell';
       // 寬度按格數比例
@@ -288,8 +325,10 @@ class GameUI {
         if (window._cardImgCache[imgPath] === undefined) {
           // 第一次：檢查圖片是否存在
           const testImg = new Image();
-          testImg.onload = () => { window._cardImgCache[imgPath] = true; };
-          testImg.onerror = () => { window._cardImgCache[imgPath] = false; this.updateHand(state); };
+          const self = this;
+          const cachedState = state;
+          testImg.onload = () => { window._cardImgCache[imgPath] = true; self.updateHand(cachedState); };
+          testImg.onerror = () => { window._cardImgCache[imgPath] = false; };
           testImg.src = imgPath;
         }
         el.innerHTML = `
@@ -328,15 +367,6 @@ class GameUI {
           const myPid = this.myPlayerId;
           const myNetwork = new Set();
           if (state && state.board && myPid) {
-            // DEBUG
-            const owners = [];
-            for (const loc of Object.values(state.board)) {
-              for (const slot of loc.slots) {
-                if (slot.built) owners.push(slot.built.owner);
-              }
-            }
-            const linkOwners = (state.links||[]).map(l => l.owner);
-            console.log('Hover DEBUG: myPid='+myPid+' owners='+[...new Set(owners)]+' linkOwners='+[...new Set(linkOwners)]);
             // 沒有建築和路線時可以蓋任何地方
             let hasBuildings = false;
             for (const [cid, loc] of Object.entries(state.board)) {
@@ -412,13 +442,13 @@ class GameUI {
             }
           }
         }
-        if (state) r.render(state);
+        if (state) r.scheduleRender(state);
       });
       el.addEventListener('mouseleave', () => {
         if (window.renderer) {
           window.renderer.highlightedCities = [];
           window.renderer.dimHighlightedCities = [];
-          if (state) window.renderer.render(state);
+          if (state) window.renderer.scheduleRender(state);
         }
       });
 
@@ -439,18 +469,37 @@ class GameUI {
     }
   }
 
-  /* ─── 遊戲記錄 ─── */
+  /* ─── 遊戲記錄（差量追加）─── */
   updateLog(state) {
     const c = document.getElementById('log-content');
-    c.innerHTML = '';
-    for (const e of state.log) {
-      const d = document.createElement('div');
-      d.className = 'log-entry';
-      if (e.message.startsWith('===')) d.classList.add('highlight');
-      d.textContent = e.message;
-      c.appendChild(d);
+    const existingCount = c.children.length;
+    const logEntries = state.log;
+
+    if (existingCount > logEntries.length) {
+      // log 被截斷了（新時代等），全量重建
+      c.innerHTML = '';
+      for (const e of logEntries) {
+        const d = document.createElement('div');
+        d.className = 'log-entry';
+        if (e.message.startsWith('===')) d.classList.add('highlight');
+        d.textContent = e.message;
+        c.appendChild(d);
+      }
+    } else {
+      // 只追加新的條目
+      for (let i = existingCount; i < logEntries.length; i++) {
+        const e = logEntries[i];
+        const d = document.createElement('div');
+        d.className = 'log-entry';
+        if (e.message.startsWith('===')) d.classList.add('highlight');
+        d.textContent = e.message;
+        c.appendChild(d);
+      }
     }
-    c.scrollTop = c.scrollHeight;
+
+    if (existingCount < logEntries.length) {
+      c.scrollTop = c.scrollHeight;
+    }
   }
 
   /* ─── 遊戲結束 ─── */
@@ -465,7 +514,7 @@ class GameUI {
       if (p.id === state.winner) row.classList.add('winner');
       row.innerHTML = `
         <span class="rank">${i === 0 ? '\u{1F947}' : i === 1 ? '\u{1F948}' : i === 2 ? '\u{1F949}' : ''}</span>
-        <span>${p.name}</span>
+        <span>${escHtml(p.name)}</span>
         <span>${p.vp} 分 &nbsp;\u00A3${p.money}</span>
       `;
       sc.appendChild(row);

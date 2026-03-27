@@ -28,6 +28,9 @@ class BoardRenderer {
     this.MAX_ZOOM = 3;
     this._setupZoomPan();
 
+    // requestAnimationFrame 節流
+    this._renderQueued = false;
+
     // Load board image
     this.boardImage = new Image();
     this.boardImage.src = BOARD_IMAGE_SRC;
@@ -93,6 +96,62 @@ class BoardRenderer {
       this.zoom = 1; this.panX = 0; this.panY = 0;
       if (this.gameState) this.render(this.gameState);
     });
+
+    // === 觸控支援（手機平移/縮放）===
+    let lastTouchDist = 0;
+    let lastTouchMid = null;
+
+    canvas.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 1) {
+        this.isPanning = true;
+        this.panStartX = e.touches[0].clientX;
+        this.panStartY = e.touches[0].clientY;
+      } else if (e.touches.length === 2) {
+        this.isPanning = false;
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        lastTouchDist = Math.hypot(dx, dy);
+        lastTouchMid = {
+          x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+          y: (e.touches[0].clientY + e.touches[1].clientY) / 2
+        };
+      }
+      e.preventDefault();
+    }, { passive: false });
+
+    canvas.addEventListener('touchmove', (e) => {
+      if (e.touches.length === 1 && this.isPanning) {
+        const rect = canvas.getBoundingClientRect();
+        const scale = canvas.width / rect.width;
+        this.panX += (e.touches[0].clientX - this.panStartX) * scale;
+        this.panY += (e.touches[0].clientY - this.panStartY) * scale;
+        this.panStartX = e.touches[0].clientX;
+        this.panStartY = e.touches[0].clientY;
+        if (this.gameState) this.scheduleRender(this.gameState);
+      } else if (e.touches.length === 2 && lastTouchDist > 0) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.hypot(dx, dy);
+        const ratio = dist / lastTouchDist;
+        const rect = canvas.getBoundingClientRect();
+        const midX = ((e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left) * (canvas.width / rect.width);
+        const midY = ((e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top) * (canvas.height / rect.height);
+
+        const oldZoom = this.zoom;
+        this.zoom = Math.max(this.MIN_ZOOM, Math.min(this.MAX_ZOOM, this.zoom * ratio));
+        this.panX = midX - (midX - this.panX) * (this.zoom / oldZoom);
+        this.panY = midY - (midY - this.panY) * (this.zoom / oldZoom);
+
+        lastTouchDist = dist;
+        if (this.gameState) this.scheduleRender(this.gameState);
+      }
+      e.preventDefault();
+    }, { passive: false });
+
+    canvas.addEventListener('touchend', (e) => {
+      if (e.touches.length < 2) { lastTouchDist = 0; lastTouchMid = null; }
+      if (e.touches.length === 0) this.isPanning = false;
+    });
   }
 
   // 將螢幕座標轉換為地圖座標（考慮縮放和平移）
@@ -101,6 +160,18 @@ class BoardRenderer {
       x: (sx - this.panX) / this.zoom,
       y: (sy - this.panY) / this.zoom
     };
+  }
+
+  // 節流版 render — hover/mousemove 等高頻場景使用
+  scheduleRender(gameState) {
+    this.gameState = gameState;
+    if (!this._renderQueued) {
+      this._renderQueued = true;
+      requestAnimationFrame(() => {
+        this._renderQueued = false;
+        this.render(this.gameState);
+      });
+    }
   }
 
   /* ============================== main render ============================== */
@@ -131,6 +202,7 @@ class BoardRenderer {
 
     // ── interactive layers (on top of board image) ──
     this.drawMerchantConnections(ctx);
+    this.drawConnections(ctx, gameState);
     this.drawBuiltLinks(ctx, gameState);
     this.drawMerchants(ctx, gameState);
     this.drawCities(ctx, gameState);
@@ -221,6 +293,33 @@ class BoardRenderer {
     return BOARD_CITIES[id] || BOARD_MERCHANTS[id] || null;
   }
 
+  // 取得路線視覺參數（端點偏移+彎曲）
+  _getRouteVisual(fromId, toId) {
+    if (typeof ROUTE_VISUAL === 'undefined') return null;
+    return ROUTE_VISUAL[fromId + '|' + toId] || ROUTE_VISUAL[toId + '|' + fromId] || null;
+  }
+
+  // 畫一條路線（直線或貝茲曲線）
+  _drawRoutePath(ctx, ax, ay, bx, by, rv) {
+    ctx.beginPath();
+    if (rv && rv.curve) {
+      // 貝茲曲線：控制點在中點偏移
+      const mx = (ax + bx) / 2;
+      const my = (ay + by) / 2;
+      // curve 是垂直於路線方向的偏移
+      const dx = bx - ax, dy = by - ay;
+      const len = Math.sqrt(dx*dx + dy*dy) || 1;
+      const nx = -dy / len, ny = dx / len; // 法向量
+      const cx = mx + nx * rv.curve;
+      const cy = my + ny * rv.curve;
+      ctx.moveTo(ax, ay);
+      ctx.quadraticCurveTo(cx, cy, bx, by);
+    } else {
+      ctx.moveTo(ax, ay);
+      ctx.lineTo(bx, by);
+    }
+  }
+
   drawBuiltLinks(ctx, gs) {
     if (!gs) return;
     for (const link of gs.links) {
@@ -230,27 +329,34 @@ class BoardRenderer {
       const pidx = gs.turnOrder.indexOf(link.owner);
       const col = PLAYER_COLORS[pidx] || '#fff';
 
-      // thick coloured line
-      ctx.save();
-      ctx.strokeStyle = col;
-      ctx.lineWidth = 7;
-      ctx.shadowColor = col;
-      ctx.shadowBlur = 6;
-      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
-      ctx.restore();
+      // 取得路線視覺參數
+      const rv = this._getRouteVisual(link.from, link.to);
+      const soX = rv ? (rv.startOff || {x:0,y:0}).x : 0;
+      const soY = rv ? (rv.startOff || {x:0,y:0}).y : 0;
+      const eoX = rv ? (rv.endOff || {x:0,y:0}).x : 0;
+      const eoY = rv ? (rv.endOff || {x:0,y:0}).y : 0;
+      const ax = a.x + soX, ay = a.y + soY;
+      const bx = b.x + eoX, by = b.y + eoY;
 
-      // white outline
+      // 白色外框
       ctx.strokeStyle = 'rgba(255,255,255,0.3)';
       ctx.lineWidth = 9;
-      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
-      // re-draw colour on top
+      this._drawRoutePath(ctx, ax, ay, bx, by, rv);
+      ctx.stroke();
+
+      // 玩家顏色線
+      ctx.save();
       ctx.strokeStyle = col;
       ctx.lineWidth = 5;
-      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+      ctx.shadowColor = col;
+      ctx.shadowBlur = 6;
+      this._drawRoutePath(ctx, ax, ay, bx, by, rv);
+      ctx.stroke();
+      ctx.restore();
 
-      // midpoint type badge
-      const mx = (a.x + b.x) / 2;
-      const my = (a.y + b.y) / 2;
+      // 中點標記
+      const mx = (ax + bx) / 2;
+      const my = (ay + by) / 2;
       ctx.fillStyle = link.type === 'canal' ? '#4a90d9' : '#8B4513';
       ctx.beginPath(); ctx.arc(mx, my, 8, 0, Math.PI * 2); ctx.fill();
       ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
@@ -319,23 +425,37 @@ class BoardRenderer {
         ctx.fillText('（關閉）', m.x, m.y);
       }
 
-      // 啤酒桶顯示
-      const beerY = m.y + 18;
-      if (beer > 0) {
-        // 有啤酒 → 金色桶
-        ctx.fillStyle = '#ffd700';
-        ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center';
-        ctx.fillText('\u{1F37A}' + beer, m.x, beerY + 2);
-      } else {
-        // 沒啤酒 → 灰色
-        ctx.fillStyle = '#555'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
-        ctx.fillText('酒\u2717', m.x, beerY + 2);
+      // 啤酒桶（放在每個商人格子旁邊，沒有框框）
+      if (ms && ms.tiles) {
+        for (let ti = 0; ti < ms.tiles.length; ti++) {
+          const tile = ms.tiles[ti];
+          const slotOff = CITY_SLOT_OFFSETS[id + '-' + ti] || {x:0,y:0};
+          const n = ms.tiles.length;
+          const totalW = n * (42 + 4) - 4;
+          const bx = m.x - totalW/2 + ti * 46 + slotOff.x + 21;
+          const by = m.y - 42/2 + 6 + slotOff.y + 42 + 4;
+
+          if (tile.beer > 0) {
+            ctx.font = '18px sans-serif'; ctx.textAlign = 'center';
+            ctx.fillText('\u{1F37A}', bx, by + 16);
+          } else if (tile.type !== 'closed') {
+            ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
+            ctx.fillStyle = 'rgba(255,255,255,0.2)';
+            ctx.fillText('\u2717', bx, by + 14);
+          }
+        }
+      } else if (beer > 0) {
+        // 後備：沒有 tiles 資料時用總數
+        ctx.font = '18px sans-serif'; ctx.textAlign = 'center';
+        for (let bi = 0; bi < beer; bi++) {
+          ctx.fillText('\u{1F37A}', m.x - 12 + bi * 24, m.y + 40);
+        }
       }
 
       // 獎勵提示
       if (bonusDesc) {
-        ctx.fillStyle = 'rgba(255,215,0,0.6)'; ctx.font = '8px sans-serif'; ctx.textAlign = 'center';
-        ctx.fillText(bonusDesc, m.x, beerY + 16);
+        ctx.fillStyle = 'rgba(255,215,0,0.6)'; ctx.font = '9px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText(bonusDesc, m.x, m.y + 58);
       }
     }
   }
@@ -360,42 +480,32 @@ class BoardRenderer {
       const dimHighlighted = this.dimHighlightedCities.includes(cid);
       const nSlots = cd ? cd.slots.length : 1;
 
-      // ── compute bounding box around slots ──
-      const totalW = nSlots * (this.SLOT_W + this.SLOT_GAP) - this.SLOT_GAP + 20; // +padding
-      const totalH = this.SLOT_H + 28; // name + padding
-      const bx = pos.x - totalW / 2;
-      const by = pos.y - totalH / 2 + 4;
+      // 只在 hover/selected/highlighted 時畫高亮（不畫半透明背景）
+      if (selected || highlighted || dimHighlighted || hovered) {
+        const totalW = nSlots * (this.SLOT_W + this.SLOT_GAP) - this.SLOT_GAP + 20;
+        const totalH = this.SLOT_H + 20;
+        const bx = pos.x - totalW / 2;
+        const by = pos.y - totalH / 2;
 
-      // ── city plate bg ──
-      ctx.save();
-      if (selected) {
-        ctx.shadowColor = '#e94560'; ctx.shadowBlur = 14;
-      } else if (highlighted) {
-        ctx.shadowColor = '#3ba55d'; ctx.shadowBlur = 18; // 綠色=可建造
-      } else if (dimHighlighted) {
-        ctx.shadowColor = '#aa8833'; ctx.shadowBlur = 8; // 黃色=有格但不能蓋
-      } else if (hovered) {
-        ctx.shadowColor = '#fff'; ctx.shadowBlur = 10;
+        ctx.save();
+        if (selected) { ctx.shadowColor = '#e94560'; ctx.shadowBlur = 14; }
+        else if (highlighted) { ctx.shadowColor = '#3ba55d'; ctx.shadowBlur = 18; }
+        else if (dimHighlighted) { ctx.shadowColor = '#aa8833'; ctx.shadowBlur = 8; }
+        else { ctx.shadowColor = '#fff'; ctx.shadowBlur = 10; }
+
+        ctx.fillStyle = selected ? 'rgba(233,69,96,0.15)' :
+                        highlighted ? 'rgba(59,165,93,0.15)' :
+                        dimHighlighted ? 'rgba(170,136,51,0.08)' :
+                        'rgba(255,255,255,0.08)';
+        ctx.strokeStyle = selected ? '#e94560' :
+                          highlighted ? '#3ba55d' :
+                          dimHighlighted ? 'rgba(170,136,51,0.4)' :
+                          'rgba(255,255,255,0.4)';
+        ctx.lineWidth = 2;
+        this.roundRect(ctx, bx, by, totalW, totalH, 8);
+        ctx.fill(); ctx.stroke();
+        ctx.restore();
       }
-      ctx.fillStyle = selected       ? 'rgba(233,69,96,0.18)' :
-                      highlighted    ? 'rgba(59,165,93,0.18)' :
-                      dimHighlighted ? 'rgba(170,136,51,0.08)' :
-                      hovered        ? 'rgba(255,255,255,0.10)' :
-                                       'rgba(10,15,20,0.65)';
-      ctx.strokeStyle = selected       ? '#e94560' :
-                        highlighted    ? '#3ba55d' :
-                        dimHighlighted ? 'rgba(170,136,51,0.4)' :
-                        hovered        ? 'rgba(255,255,255,0.6)' :
-                                         'rgba(255,255,255,0.22)';
-      ctx.lineWidth = selected || highlighted ? 2.5 : dimHighlighted || hovered ? 2 : 1.2;
-      this.roundRect(ctx, bx, by, totalW, totalH, 10);
-      ctx.fill(); ctx.stroke();
-      ctx.restore();
-
-      // ── city name (above) ──
-      ctx.fillStyle = hovered || selected ? '#fff' : 'rgba(255,255,255,0.85)';
-      ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center';
-      ctx.fillText(cd ? cd.name : cid, pos.x, by - 5);
 
       // ── draw slots ──
       if (cd) this.drawSlots(ctx, pos, cd, cid);
@@ -550,65 +660,6 @@ class BoardRenderer {
   }
 
   /* ============================= legend panel ============================= */
-  drawLegend(ctx, gs) {
-    const lx = 10, ly = 10, lw = 120, rowH = 20;
-    const types = ['cotton', 'coal', 'iron', 'manufacturer', 'pottery', 'brewery'];
-    const lh = types.length * rowH + 36;
-
-    ctx.fillStyle = 'rgba(0,0,0,0.6)';
-    ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1;
-    this.roundRect(ctx, lx, ly, lw, lh, 8);
-    ctx.fill(); ctx.stroke();
-
-    ctx.fillStyle = '#d4a843'; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'left';
-    ctx.fillText('\u25C8 產業圖例', lx + 8, ly + 16);
-
-    types.forEach((type, i) => {
-      const d = INDUSTRY_DISPLAY[type];
-      const ry = ly + 26 + i * rowH;
-
-      // colour swatch
-      ctx.fillStyle = d.iconBg;
-      this.roundRect(ctx, lx + 8, ry, 14, 14, 3);
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 0.5;
-      this.roundRect(ctx, lx + 8, ry, 14, 14, 3);
-      ctx.stroke();
-
-      // label
-      ctx.fillStyle = '#ddd'; ctx.font = '11px sans-serif'; ctx.textAlign = 'left';
-      ctx.fillText(`${d.short} ${d.label}`, lx + 28, ry + 11);
-    });
-
-    // link legend
-    const ly2 = ly + lh + 10;
-    ctx.fillStyle = 'rgba(0,0,0,0.6)';
-    this.roundRect(ctx, lx, ly2, lw, 60, 8);
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1;
-    this.roundRect(ctx, lx, ly2, lw, 60, 8);
-    ctx.stroke();
-
-    ctx.fillStyle = '#d4a843'; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'left';
-    ctx.fillText('\u25C8 路線', lx + 8, ly2 + 16);
-
-    // canal sample
-    ctx.strokeStyle = 'rgba(74,144,217,0.6)'; ctx.lineWidth = 3;
-    ctx.setLineDash([6, 3]);
-    ctx.beginPath(); ctx.moveTo(lx + 10, ly2 + 30); ctx.lineTo(lx + 40, ly2 + 30); ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.fillStyle = '#aaa'; ctx.font = '10px sans-serif';
-    ctx.fillText('C 運河', lx + 46, ly2 + 34);
-
-    // rail sample
-    ctx.strokeStyle = 'rgba(139,69,19,0.6)'; ctx.lineWidth = 3;
-    ctx.setLineDash([3, 5]);
-    ctx.beginPath(); ctx.moveTo(lx + 10, ly2 + 48); ctx.lineTo(lx + 40, ly2 + 48); ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.fillStyle = '#aaa';
-    ctx.fillText('R 鐵路', lx + 46, ly2 + 52);
-  }
-
   /* ============================ market panels ============================= */
   drawMarketPanel(ctx, gs) {
     if (!gs) return;

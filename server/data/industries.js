@@ -8,9 +8,9 @@ const industryData = {
       { level: 1, cost: 12, coalCost: 0, ironCost: 0, income: 5, vp: 5, linkVP: 1, sellBeer: 1, eraMin: 'canal' },
       { level: 2, cost: 14, coalCost: 1, ironCost: 0, income: 4, vp: 5, linkVP: 2, sellBeer: 1, eraMin: 'canal' },
       { level: 3, cost: 16, coalCost: 1, ironCost: 1, income: 3, vp: 9, linkVP: 1, sellBeer: 1, eraMin: 'canal' },
-      { level: 4, cost: 18, coalCost: 1, ironCost: 1, income: 2, vp: 12, linkVP: 1, sellBeer: 0, eraMin: 'rail' }
+      { level: 4, cost: 18, coalCost: 1, ironCost: 1, income: 1, vp: 12, linkVP: 1, sellBeer: 0, eraMin: 'rail' }
     ],
-    count: [3, 3, 3, 2] // total 11
+    count: [3, 3, 3, 3] // total 12
   },
 
   [T.MANUFACTURER]: {

@@ -30,39 +30,53 @@ function getIronSellPrice(supply) {
   return IRON_MARKET_PRICES[IRON_MARKET_SIZE - supply - 1];
 }
 
-// Find connected locations via player networks (BFS)
-function getConnectedLocations(gameState, startLocation, playerId) {
-  const visited = new Set();
-  const queue = [startLocation];
-  visited.add(startLocation);
+// 統一 BFS：從一個或多個起點，沿已建路線擴展
+// 回傳 { visited: Set, distances: Map }
+// 如果只需要 visited 不需要距離，distances 可忽略
+function bfs(gameState, startLocations) {
+  const starts = Array.isArray(startLocations) ? startLocations : [startLocations];
+  const distances = new Map();
+  const queue = [];
+  for (const s of starts) {
+    if (!distances.has(s)) {
+      distances.set(s, 0);
+      queue.push(s);
+    }
+  }
 
-  while (queue.length > 0) {
-    const current = queue.shift();
-    // Find all links from current location
+  let head = 0;
+  while (head < queue.length) {
+    const current = queue[head++];
+    const d = distances.get(current);
     for (const link of gameState.links) {
       let neighbor = null;
       if (link.from === current) neighbor = link.to;
       else if (link.to === current) neighbor = link.from;
-
-      if (neighbor && !visited.has(neighbor)) {
-        visited.add(neighbor);
+      if (neighbor && !distances.has(neighbor)) {
+        distances.set(neighbor, d + 1);
         queue.push(neighbor);
       }
     }
   }
-  return visited;
+
+  return { visited: new Set(distances.keys()), distances };
 }
 
-// Find all locations in a player's network
+// 舊 API 保持相容
+function getConnectedLocations(gameState, startLocation, playerId) {
+  return bfs(gameState, startLocation).visited;
+}
+
+// Find all locations in a player's network（一次 BFS）
 // 網路 = 有你建築的城市 + 你路線相鄰的城市 + 透過所有人路線 BFS 可達的城市
 function getPlayerNetwork(gameState, playerId) {
-  const startPoints = new Set();
+  const startPoints = [];
 
   // 1. 有你建築的城市
   for (const [locId, loc] of Object.entries(gameState.board)) {
     for (const slot of loc.slots) {
       if (slot.built && slot.built.owner === playerId) {
-        startPoints.add(locId);
+        startPoints.push(locId);
       }
     }
   }
@@ -70,19 +84,15 @@ function getPlayerNetwork(gameState, playerId) {
   // 2. 你的路線相鄰的城市
   for (const link of gameState.links) {
     if (link.owner === playerId) {
-      startPoints.add(link.from);
-      startPoints.add(link.to);
+      startPoints.push(link.from);
+      startPoints.push(link.to);
     }
   }
 
-  // 3. 從所有起點 BFS（透過所有人的路線）
-  const allConnected = new Set();
-  for (const start of startPoints) {
-    const connected = getConnectedLocations(gameState, start, playerId);
-    connected.forEach(l => allConnected.add(l));
-  }
+  if (startPoints.length === 0) return new Set();
 
-  return allConnected;
+  // 3. 從所有起點一次 BFS（透過所有人的路線）
+  return bfs(gameState, startPoints).visited;
 }
 
 // Check if player has any building or link on the board
@@ -92,7 +102,6 @@ function playerHasBuildings(gameState, playerId) {
       if (slot.built && slot.built.owner === playerId) return true;
     }
   }
-  // 也檢查路線
   if (gameState.links) {
     for (const link of gameState.links) {
       if (link.owner === playerId) return true;
@@ -101,24 +110,12 @@ function playerHasBuildings(gameState, playerId) {
   return false;
 }
 
-// BFS 計算從起點到各城市的距離（經過的路線數）
+// BFS 計算從起點到各城市的距離（使用統一 BFS）
 function getDistances(gameState, startLocation) {
+  const { distances } = bfs(gameState, startLocation);
+  // 轉回 object 以保持呼叫端相容
   const dist = {};
-  dist[startLocation] = 0;
-  const queue = [startLocation];
-
-  while (queue.length > 0) {
-    const current = queue.shift();
-    for (const link of gameState.links) {
-      let neighbor = null;
-      if (link.from === current) neighbor = link.to;
-      else if (link.to === current) neighbor = link.from;
-      if (neighbor && dist[neighbor] === undefined) {
-        dist[neighbor] = dist[current] + 1;
-        queue.push(neighbor);
-      }
-    }
-  }
+  for (const [k, v] of distances) dist[k] = v;
   return dist;
 }
 
@@ -179,14 +176,21 @@ function consumeCoal(gameState, location, amount, playerId) {
       return { success: false, reason: '無法從市場購買煤炭：需要透過路線連接到商人圖標' };
     }
 
+    // 計算市場購買費用（考慮板塊煤回填後的實際市場供給）
+    // 板塊消耗的煤會回到市場，所以先計算回填量
+    let boardCoalReturned = 0;
+    for (const src of sources) {
+      if (!src.market) boardCoalReturned += src.amount;
+    }
+    let simSupply = Math.min(gameState.coalMarket + boardCoalReturned, COAL_MARKET_SIZE);
     for (let i = 0; i < remaining; i++) {
-      if (gameState.coalMarket <= 0) {
+      if (simSupply <= 0) {
         return { success: false, reason: '煤炭不足（市場和板塊都沒有）' };
       }
-      totalCost += getCoalPrice(gameState.coalMarket);
-      gameState.coalMarket--;
+      totalCost += getCoalPrice(simSupply);
+      simSupply--;
     }
-    sources.push({ market: true, amount: remaining });
+    sources.push({ market: true, amount: remaining, marketType: 'coal' });
   }
 
   return { success: true, cost: totalCost, sources };
@@ -213,16 +217,17 @@ function consumeIron(gameState, amount) {
     }
   }
 
-  // Then buy from market
+  // Then buy from market（不直接修改市場，由呼叫端確認後再扣）
   if (remaining > 0) {
+    let simSupply = gameState.ironMarket;
     for (let i = 0; i < remaining; i++) {
-      if (gameState.ironMarket <= 0) {
+      if (simSupply <= 0) {
         return { success: false, reason: '鐵不足' };
       }
-      totalCost += getIronPrice(gameState.ironMarket);
-      gameState.ironMarket--;
+      totalCost += getIronPrice(simSupply);
+      simSupply--;
     }
-    sources.push({ market: true, amount: remaining });
+    sources.push({ market: true, amount: remaining, marketType: 'iron' });
   }
 
   return { success: true, cost: totalCost, sources };
@@ -290,7 +295,15 @@ function findBeer(gameState, location, amount, playerId, merchantId) {
 function applyConsumption(gameState, sources) {
   const flips = [];
   for (const src of sources) {
-    if (src.market) continue;
+    if (src.market) {
+      // 市場購買：現在才真正扣減市場數量
+      if (src.marketType === 'coal') {
+        gameState.coalMarket = Math.max(0, gameState.coalMarket - src.amount);
+      } else if (src.marketType === 'iron') {
+        gameState.ironMarket = Math.max(0, gameState.ironMarket - src.amount);
+      }
+      continue;
+    }
     // 商人啤酒消耗
     if (src.merchantBeer) {
       const merchant = gameState.merchants.find(m => m.id === src.merchantId);
@@ -322,7 +335,7 @@ function applyConsumption(gameState, sources) {
       }
     }
   }
-  return flips.length > 0 ? flips[0] : { flipped: false };
+  return flips;
 }
 
 module.exports = {

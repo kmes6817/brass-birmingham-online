@@ -33,6 +33,9 @@
           <button id="btn-create" class="btn-primary"><span class="btn-icon">+</span> 建立房間</button>
           <button id="btn-join-toggle" class="btn-secondary"><span class="btn-icon">&rarr;</span> 加入房間</button>
         </div>
+        <div style="margin-bottom:10px">
+          <button id="btn-preview" class="btn-secondary" style="width:100%;opacity:0.7;font-size:13px" onclick="startPreview()">👁 預覽模式（不需連線）</button>
+        </div>
         <div id="join-section" style="display:none">
           <input type="text" id="room-code" placeholder="房間代碼" maxlength="6" autocomplete="off" style="text-transform:uppercase;letter-spacing:4px;text-align:center">
           <button id="btn-join" class="btn-primary">加入</button>
@@ -165,11 +168,12 @@
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/js/boardData.js?v=33"></script>
-  <script src="/js/renderer.js?v=33"></script>
-  <script src="/js/ui.js?v=33"></script>
-  <script src="/js/input.js?v=33"></script>
-  <script src="/js/lobby.js?v=33"></script>
-  <script src="/js/main.js?v=33"></script>
+  <script src="/js/boardData.js?v=38"></script>
+  <script src="/js/routeData.js?v=38"></script>
+  <script src="/js/renderer.js?v=38"></script>
+  <script src="/js/ui.js?v=38"></script>
+  <script src="/js/input.js?v=38"></script>
+  <script src="/js/lobby.js?v=38"></script>
+  <script src="/js/main.js?v=38"></script>
 </body>
 </html>

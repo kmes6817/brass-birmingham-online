@@ -10,29 +10,29 @@ const locations = {
     name: 'Leek',
     slots: [
       { id: 'leek-0', types: [T.COTTON, T.MANUFACTURER], built: null },
-      { id: 'leek-1', types: [T.COAL], built: null }
+      { id: 'leek-1', types: [T.COAL, T.MANUFACTURER], built: null }
     ]
   },
   'stoke-on-trent': {
     name: 'Stoke-on-Trent',
     slots: [
-      { id: 'stoke-0', types: [T.POTTERY, T.MANUFACTURER], built: null },
-      { id: 'stoke-1', types: [T.IRON], built: null },
-      { id: 'stoke-2', types: [T.MANUFACTURER, T.COTTON], built: null }
+      { id: 'stoke-0', types: [T.IRON, T.POTTERY], built: null },
+      { id: 'stoke-1', types: [T.COTTON, T.MANUFACTURER], built: null },
+      { id: 'stoke-2', types: [T.MANUFACTURER], built: null }
     ]
   },
   stone: {
     name: 'Stone',
     slots: [
-      { id: 'stone-0', types: [T.COTTON, T.MANUFACTURER], built: null },
-      { id: 'stone-1', types: [T.BREWERY], built: null }
+      { id: 'stone-0', types: [T.COTTON, T.BREWERY], built: null },
+      { id: 'stone-1', types: [T.MANUFACTURER, T.COAL], built: null }
     ]
   },
   uttoxeter: {
     name: 'Uttoxeter',
     slots: [
-      { id: 'uttoxeter-0', types: [T.COTTON, T.MANUFACTURER], built: null },
-      { id: 'uttoxeter-1', types: [T.BREWERY], built: null }
+      { id: 'uttoxeter-0', types: [T.BREWERY, T.MANUFACTURER], built: null },
+      { id: 'uttoxeter-1', types: [T.COTTON, T.BREWERY], built: null }
     ]
   },
 
@@ -40,51 +40,51 @@ const locations = {
   stafford: {
     name: 'Stafford',
     slots: [
-      { id: 'stafford-0', types: [T.POTTERY, T.MANUFACTURER], built: null },
-      { id: 'stafford-1', types: [T.MANUFACTURER], built: null }
+      { id: 'stafford-0', types: [T.MANUFACTURER, T.BREWERY], built: null },
+      { id: 'stafford-1', types: [T.POTTERY], built: null }
     ]
   },
   cannock: {
     name: 'Cannock',
     slots: [
-      { id: 'cannock-0', types: [T.COAL], built: null },
-      { id: 'cannock-1', types: [T.MANUFACTURER], built: null }
+      { id: 'cannock-0', types: [T.MANUFACTURER, T.COAL], built: null },
+      { id: 'cannock-1', types: [T.COAL], built: null }
     ]
   },
   burton: {
     name: 'Burton-on-Trent',
     slots: [
-      { id: 'burton-0', types: [T.BREWERY], built: null },
-      { id: 'burton-1', types: [T.COAL, T.MANUFACTURER], built: null }
+      { id: 'burton-0', types: [T.MANUFACTURER, T.COAL], built: null },
+      { id: 'burton-1', types: [T.BREWERY], built: null }
     ]
   },
   tamworth: {
     name: 'Tamworth',
     slots: [
-      { id: 'tamworth-0', types: [T.COTTON, T.MANUFACTURER], built: null },
-      { id: 'tamworth-1', types: [T.COAL], built: null }
+      { id: 'tamworth-0', types: [T.COTTON, T.COAL], built: null },
+      { id: 'tamworth-1', types: [T.COTTON, T.COAL], built: null }
     ]
   },
   walsall: {
     name: 'Walsall',
     slots: [
-      { id: 'walsall-0', types: [T.MANUFACTURER, T.IRON], built: null },
-      { id: 'walsall-1', types: [T.BREWERY], built: null }
+      { id: 'walsall-0', types: [T.IRON, T.MANUFACTURER], built: null },
+      { id: 'walsall-1', types: [T.MANUFACTURER, T.BREWERY], built: null }
     ]
   },
   wolverhampton: {
     name: 'Wolverhampton',
     slots: [
       { id: 'wolverhampton-0', types: [T.MANUFACTURER], built: null },
-      { id: 'wolverhampton-1', types: [T.COAL, T.MANUFACTURER], built: null }
+      { id: 'wolverhampton-1', types: [T.MANUFACTURER, T.COAL], built: null }
     ]
   },
   coalbrookdale: {
     name: 'Coalbrookdale',
     slots: [
       { id: 'coalbrookdale-0', types: [T.IRON], built: null },
-      { id: 'coalbrookdale-1', types: [T.COAL, T.IRON], built: null },
-      { id: 'coalbrookdale-2', types: [T.BREWERY], built: null }
+      { id: 'coalbrookdale-1', types: [T.IRON, T.BREWERY], built: null },
+      { id: 'coalbrookdale-2', types: [T.COAL], built: null }
     ]
   },
 
@@ -93,8 +93,8 @@ const locations = {
     name: 'Birmingham',
     slots: [
       { id: 'birmingham-0', types: [T.COTTON, T.MANUFACTURER], built: null },
-      { id: 'birmingham-1', types: [T.MANUFACTURER], built: null },
-      { id: 'birmingham-2', types: [T.IRON, T.MANUFACTURER], built: null },
+      { id: 'birmingham-1', types: [T.IRON], built: null },
+      { id: 'birmingham-2', types: [T.MANUFACTURER], built: null },
       { id: 'birmingham-3', types: [T.MANUFACTURER], built: null }
     ]
   },
@@ -111,30 +111,31 @@ const locations = {
     name: 'Derby',
     slots: [
       { id: 'derby-0', types: [T.COTTON, T.MANUFACTURER], built: null },
-      { id: 'derby-1', types: [T.BREWERY], built: null },
-      { id: 'derby-2', types: [T.MANUFACTURER], built: null }
+      { id: 'derby-1', types: [T.COTTON, T.BREWERY], built: null },
+      { id: 'derby-2', types: [T.IRON], built: null }
     ]
   },
   belper: {
     name: 'Belper',
     slots: [
       { id: 'belper-0', types: [T.COTTON, T.MANUFACTURER], built: null },
-      { id: 'belper-1', types: [T.COAL], built: null }
+      { id: 'belper-1', types: [T.COAL], built: null },
+      { id: 'belper-2', types: [T.POTTERY], built: null }
     ]
   },
   nuneaton: {
     name: 'Nuneaton',
     slots: [
-      { id: 'nuneaton-0', types: [T.COTTON, T.MANUFACTURER], built: null },
-      { id: 'nuneaton-1', types: [T.BREWERY], built: null }
+      { id: 'nuneaton-0', types: [T.MANUFACTURER, T.BREWERY], built: null },
+      { id: 'nuneaton-1', types: [T.COTTON, T.COAL], built: null }
     ]
   },
   coventry: {
     name: 'Coventry',
     slots: [
-      { id: 'coventry-0', types: [T.POTTERY, T.MANUFACTURER], built: null },
+      { id: 'coventry-0', types: [T.POTTERY], built: null },
       { id: 'coventry-1', types: [T.IRON, T.MANUFACTURER], built: null },
-      { id: 'coventry-2', types: [T.MANUFACTURER], built: null }
+      { id: 'coventry-2', types: [T.MANUFACTURER, T.COAL], built: null }
     ]
   },
 
@@ -142,7 +143,7 @@ const locations = {
   kidderminster: {
     name: 'Kidderminster',
     slots: [
-      { id: 'kidderminster-0', types: [T.COTTON, T.MANUFACTURER], built: null },
+      { id: 'kidderminster-0', types: [T.COTTON, T.COAL], built: null },
       { id: 'kidderminster-1', types: [T.COAL], built: null }
     ]
   },
@@ -160,6 +161,7 @@ const locations = {
       { id: 'redditch-1', types: [T.IRON], built: null }
     ]
   },
+
   // === 商人位置（不能建產業，只用於路線連接和販賣）===
   'merchant-shrewsbury': { name: 'Shrewsbury Market', isMerchant: true, slots: [] },
   'merchant-gloucester': { name: 'Gloucester', isMerchant: true, slots: [] },
@@ -203,11 +205,9 @@ const connections = [
 
   // === ⚪ 兩者皆可 ===
   // Birmingham 區域
-  { from: 'birmingham', to: 'coventry', type: 'both' },
   { from: 'birmingham', to: 'walsall', type: 'both' },
   { from: 'birmingham', to: 'tamworth', type: 'both' },
   { from: 'birmingham', to: 'dudley', type: 'both' },
-  { from: 'birmingham', to: 'worcester', type: 'both' },
 
   // Wolverhampton 區域
   { from: 'wolverhampton', to: 'coalbrookdale', type: 'both' },
@@ -258,15 +258,15 @@ const merchants = [
     id: 'merchant-shrewsbury',
     name: 'Shrewsbury Market',
     connectedTo: ['coalbrookdale'],
-    accepts: [],  // 由隨機板塊決定
-    bonusType: 'money',
-    bonusAmount: 5,
-    bonusDesc: '獲得 £5'
+    accepts: [],
+    bonusType: 'vp',
+    bonusAmount: 4,
+    bonusDesc: '+4 分'
   },
   {
     id: 'merchant-gloucester',
     name: 'Gloucester',
-    connectedTo: ['worcester'],
+    connectedTo: ['worcester', 'redditch'],
     accepts: [],
     bonusType: 'develop',
     bonusAmount: 1,
@@ -275,29 +275,29 @@ const merchants = [
   {
     id: 'merchant-oxford',
     name: 'Oxford',
-    connectedTo: ['birmingham', 'coventry'],
+    connectedTo: ['birmingham', 'redditch'],
     accepts: [],
     bonusType: 'income',
     bonusAmount: 2,
-    bonusDesc: '收入軌前進 2 格'
+    bonusDesc: '收入+2格'
   },
   {
     id: 'merchant-warrington',
     name: 'Warrington',
-    connectedTo: ['stoke-on-trent', 'stone'],
+    connectedTo: ['stoke-on-trent'],
     accepts: [],
-    bonusType: 'develop',
-    bonusAmount: 1,
-    bonusDesc: '免費研發 1 個（不用鐵）'
+    bonusType: 'money',
+    bonusAmount: 5,
+    bonusDesc: '+£5'
   },
   {
     id: 'merchant-nottingham',
     name: 'Nottingham',
-    connectedTo: ['derby', 'belper'],
+    connectedTo: ['derby'],
     accepts: [],
-    bonusType: 'income',
-    bonusAmount: 2,
-    bonusDesc: '收入軌前進 2 格'
+    bonusType: 'vp',
+    bonusAmount: 3,
+    bonusDesc: '+3 分'
   }
 ];
 
