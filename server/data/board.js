@@ -185,66 +185,69 @@ const locations = {
   }
 };
 
-// Connections between cities
-// type: 'canal' = canal era only, 'rail' = rail era only, 'both' = available in both eras
+// 路線（已校正）
+// type: 'canal' = 運河限定, 'rail' = 鐵路限定, 'both' = 兩者皆可
 const connections = [
-  // Northern connections
-  { from: 'leek', to: 'stoke-on-trent', type: 'both' },
-  { from: 'leek', to: 'uttoxeter', type: 'both' },
-  { from: 'stoke-on-trent', to: 'stone', type: 'both' },
-  { from: 'stone', to: 'uttoxeter', type: 'rail' },
-  { from: 'stone', to: 'stafford', type: 'both' },
-  { from: 'uttoxeter', to: 'burton', type: 'both' },
+  // === 🔵 運河限定（1條）===
+  { from: 'walsall', to: 'burton', type: 'canal' },
 
-  // Central connections
-  { from: 'stafford', to: 'cannock', type: 'both' },
-  { from: 'cannock', to: 'walsall', type: 'both' },
-  { from: 'cannock', to: 'wolverhampton', type: 'both' },
-  { from: 'burton', to: 'tamworth', type: 'both' },
-  { from: 'burton', to: 'derby', type: 'both' },
-  { from: 'tamworth', to: 'walsall', type: 'both' },
-  { from: 'tamworth', to: 'nuneaton', type: 'both' },
-  { from: 'tamworth', to: 'birmingham', type: 'both' },
-  { from: 'walsall', to: 'wolverhampton', type: 'both' },
-  { from: 'walsall', to: 'birmingham', type: 'both' },
+  // === 🟤 鐵路限定（8條）===
+  { from: 'birmingham', to: 'redditch', type: 'rail' },
+  { from: 'birmingham', to: 'nuneaton', type: 'rail' },
+  { from: 'nuneaton', to: 'coventry', type: 'rail' },
+  { from: 'walsall', to: 'tamworth', type: 'rail' },
+  { from: 'cannock', to: 'burton', type: 'rail' },
+  { from: 'stone', to: 'uttoxeter', type: 'rail' },
+  { from: 'uttoxeter', to: 'derby', type: 'rail' },
+  { from: 'leek', to: 'belper', type: 'rail' },
+
+  // === ⚪ 兩者皆可 ===
+  // Birmingham 區域
+  { from: 'birmingham', to: 'coventry', type: 'both' },
+  { from: 'birmingham', to: 'walsall', type: 'both' },
+  { from: 'birmingham', to: 'tamworth', type: 'both' },
+  { from: 'birmingham', to: 'dudley', type: 'both' },
+  { from: 'birmingham', to: 'worcester', type: 'both' },
+
+  // Wolverhampton 區域
   { from: 'wolverhampton', to: 'coalbrookdale', type: 'both' },
   { from: 'wolverhampton', to: 'dudley', type: 'both' },
-  { from: 'wolverhampton', to: 'birmingham', type: 'rail' },
+  { from: 'wolverhampton', to: 'walsall', type: 'both' },
+  { from: 'wolverhampton', to: 'cannock', type: 'both' },
 
-  // Birmingham area
-  { from: 'birmingham', to: 'dudley', type: 'both' },
-  { from: 'birmingham', to: 'redditch', type: 'canal' },
-  { from: 'birmingham', to: 'worcester', type: 'both' },
-  { from: 'birmingham', to: 'coventry', type: 'both' },
-  { from: 'birmingham', to: 'nuneaton', type: 'rail' },
-
-  // Eastern connections
-  { from: 'derby', to: 'belper', type: 'both' },
-  { from: 'nuneaton', to: 'coventry', type: 'both' },
-
-  // Southern connections
-  { from: 'dudley', to: 'coalbrookdale', type: 'both' },
+  // 南部
   { from: 'dudley', to: 'kidderminster', type: 'both' },
   { from: 'kidderminster', to: 'worcester', type: 'both' },
-  { from: 'kidderminster', to: 'coalbrookdale', type: 'canal' },
-  { from: 'redditch', to: 'worcester', type: 'canal' },
-  // 農莊啤酒廠連線
-  // Cannock 左邊的農莊啤酒廠：需要一條路連接 Cannock
+  { from: 'kidderminster', to: 'coalbrookdale', type: 'both' },
+
+  // 中部
+  { from: 'cannock', to: 'walsall', type: 'both' },
+  { from: 'cannock', to: 'stafford', type: 'both' },
+  { from: 'tamworth', to: 'nuneaton', type: 'both' },
+  { from: 'tamworth', to: 'burton', type: 'both' },
+  { from: 'burton', to: 'stone', type: 'both' },
+  { from: 'burton', to: 'derby', type: 'both' },
+
+  // 北部
+  { from: 'stafford', to: 'stone', type: 'both' },
+  { from: 'stone', to: 'stoke-on-trent', type: 'both' },
+  { from: 'stoke-on-trent', to: 'leek', type: 'both' },
+  { from: 'derby', to: 'belper', type: 'both' },
+
+  // 農莊啤酒廠
   { from: 'cannock', to: 'farm-brewery-cannock', type: 'both' },
-  // Kidderminster/Worcester 之間的農莊啤酒廠：
-  // 蓋一條路同時連接 Kidderminster 和 Worcester（不需要兩條）
+  // Kid↔Wor 蓋好後自動連到農莊（不需額外蓋路）
   { from: 'kidderminster', to: 'farm-brewery-kidwor', type: 'both' },
   { from: 'worcester', to: 'farm-brewery-kidwor', type: 'both' },
 
-  // 商人連線（需要蓋運河/鐵路才能連到商人）
+  // 商人連線
   { from: 'coalbrookdale', to: 'merchant-shrewsbury', type: 'both' },
   { from: 'worcester', to: 'merchant-gloucester', type: 'both' },
+  { from: 'redditch', to: 'merchant-gloucester', type: 'both' },
   { from: 'birmingham', to: 'merchant-oxford', type: 'both' },
-  { from: 'coventry', to: 'merchant-oxford', type: 'both' },
+  { from: 'redditch', to: 'merchant-oxford', type: 'both' },
   { from: 'stoke-on-trent', to: 'merchant-warrington', type: 'both' },
-  { from: 'stone', to: 'merchant-warrington', type: 'both' },
   { from: 'derby', to: 'merchant-nottingham', type: 'both' },
-  { from: 'belper', to: 'merchant-nottingham', type: 'both' }
 ];
 
 // 外部商人位置（固定在地圖上）

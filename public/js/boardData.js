@@ -2,9 +2,13 @@
 // Canvas size: 1000 x 1000 (square, matching board image)
 // Board image: /img/board.png
 
-const BOARD_IMAGE_SRC = '/img/board.jpg';
+const BOARD_IMAGE_SRC = '/img/board-hd.jpg';
 
 // City positions mapped to the actual board photograph
+// 每個城市的格子偏移（相對於城市中心點）
+// 用 /calibrate-slots.html 校正
+const CITY_SLOT_OFFSETS = {};
+
 const BOARD_CITIES = {
   'leek':                    { x: 551, y: 89  },
   'stoke-on-trent':          { x: 420, y: 135 },
@@ -66,51 +70,54 @@ const PLAYER_COLORS = ['#e74c3c', '#3498db', '#2ecc71', '#9b59b6'];
 const PLAYER_LIGHT_COLORS = ['#f5a0a0', '#a0c8f5', '#a0f5c8', '#c8a0f5'];
 
 // Connection line data with route type
+// 路線（已校正，與 server/data/board.js 同步）
 const BOARD_CONNECTIONS = [
-  { from: 'leek', to: 'stoke-on-trent', type: 'both' },
-  { from: 'leek', to: 'uttoxeter', type: 'both' },
-  { from: 'stoke-on-trent', to: 'stone', type: 'both' },
+  // 🔵 運河限定
+  { from: 'walsall', to: 'burton', type: 'canal' },
+  // 🟤 鐵路限定
+  { from: 'birmingham', to: 'redditch', type: 'rail' },
+  { from: 'birmingham', to: 'nuneaton', type: 'rail' },
+  { from: 'nuneaton', to: 'coventry', type: 'rail' },
+  { from: 'walsall', to: 'tamworth', type: 'rail' },
+  { from: 'cannock', to: 'burton', type: 'rail' },
   { from: 'stone', to: 'uttoxeter', type: 'rail' },
-  { from: 'stone', to: 'stafford', type: 'both' },
-  { from: 'uttoxeter', to: 'burton', type: 'both' },
-  { from: 'stafford', to: 'cannock', type: 'both' },
-  { from: 'cannock', to: 'walsall', type: 'both' },
-  { from: 'cannock', to: 'wolverhampton', type: 'both' },
-  { from: 'burton', to: 'tamworth', type: 'both' },
-  { from: 'burton', to: 'derby', type: 'both' },
-  { from: 'tamworth', to: 'walsall', type: 'both' },
-  { from: 'tamworth', to: 'nuneaton', type: 'both' },
-  { from: 'tamworth', to: 'birmingham', type: 'both' },
-  { from: 'walsall', to: 'wolverhampton', type: 'both' },
-  { from: 'walsall', to: 'birmingham', type: 'both' },
+  { from: 'uttoxeter', to: 'derby', type: 'rail' },
+  { from: 'leek', to: 'belper', type: 'rail' },
+  // ⚪ 兩者皆可
+  { from: 'birmingham', to: 'coventry', type: 'both' },
+  { from: 'birmingham', to: 'walsall', type: 'both' },
+  { from: 'birmingham', to: 'tamworth', type: 'both' },
+  { from: 'birmingham', to: 'dudley', type: 'both' },
+  { from: 'birmingham', to: 'worcester', type: 'both' },
   { from: 'wolverhampton', to: 'coalbrookdale', type: 'both' },
   { from: 'wolverhampton', to: 'dudley', type: 'both' },
-  { from: 'wolverhampton', to: 'birmingham', type: 'rail' },
-  { from: 'birmingham', to: 'dudley', type: 'both' },
-  { from: 'birmingham', to: 'redditch', type: 'canal' },
-  { from: 'birmingham', to: 'worcester', type: 'both' },
-  { from: 'birmingham', to: 'coventry', type: 'both' },
-  { from: 'birmingham', to: 'nuneaton', type: 'rail' },
-  { from: 'derby', to: 'belper', type: 'both' },
-  { from: 'nuneaton', to: 'coventry', type: 'both' },
-  { from: 'dudley', to: 'coalbrookdale', type: 'both' },
+  { from: 'wolverhampton', to: 'walsall', type: 'both' },
+  { from: 'wolverhampton', to: 'cannock', type: 'both' },
   { from: 'dudley', to: 'kidderminster', type: 'both' },
   { from: 'kidderminster', to: 'worcester', type: 'both' },
-  { from: 'kidderminster', to: 'coalbrookdale', type: 'canal' },
-  { from: 'redditch', to: 'worcester', type: 'canal' },
-  // 農莊啤酒廠
+  { from: 'kidderminster', to: 'coalbrookdale', type: 'both' },
+  { from: 'cannock', to: 'walsall', type: 'both' },
+  { from: 'cannock', to: 'stafford', type: 'both' },
+  { from: 'tamworth', to: 'nuneaton', type: 'both' },
+  { from: 'tamworth', to: 'burton', type: 'both' },
+  { from: 'burton', to: 'stone', type: 'both' },
+  { from: 'burton', to: 'derby', type: 'both' },
+  { from: 'stafford', to: 'stone', type: 'both' },
+  { from: 'stone', to: 'stoke-on-trent', type: 'both' },
+  { from: 'stoke-on-trent', to: 'leek', type: 'both' },
+  { from: 'derby', to: 'belper', type: 'both' },
+  // 農莊
   { from: 'cannock', to: 'farm-brewery-cannock', type: 'both' },
   { from: 'kidderminster', to: 'farm-brewery-kidwor', type: 'both' },
   { from: 'worcester', to: 'farm-brewery-kidwor', type: 'both' },
-  // 商人連線（需蓋路才能賣）
+  // 商人
   { from: 'coalbrookdale', to: 'merchant-shrewsbury', type: 'both' },
   { from: 'worcester', to: 'merchant-gloucester', type: 'both' },
+  { from: 'redditch', to: 'merchant-gloucester', type: 'both' },
   { from: 'birmingham', to: 'merchant-oxford', type: 'both' },
-  { from: 'coventry', to: 'merchant-oxford', type: 'both' },
+  { from: 'redditch', to: 'merchant-oxford', type: 'both' },
   { from: 'stoke-on-trent', to: 'merchant-warrington', type: 'both' },
-  { from: 'stone', to: 'merchant-warrington', type: 'both' },
   { from: 'derby', to: 'merchant-nottingham', type: 'both' },
-  { from: 'belper', to: 'merchant-nottingham', type: 'both' }
 ];
 
 // Market price data

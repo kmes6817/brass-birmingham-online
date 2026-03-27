@@ -80,7 +80,7 @@ class GameUI {
     });
   }
 
-  /* ─── 我的產業板塊 ─── */
+  /* ─── 我的產業板塊（Steam 風格面板）─── */
   updateMyTiles(state, myPlayerId) {
     const c = document.getElementById('my-tiles-content');
     if (!c) return;
@@ -89,97 +89,95 @@ class GameUI {
     const me = state.players[myPlayerId];
     if (!me) return;
 
-    const typeOrder = ['cotton', 'coal', 'iron', 'manufacturer', 'pottery', 'brewery'];
     const era = state.era;
+    const ROMAN = ['','I','II','III','IV','V','VI','VII','VIII'];
+    const typeOrder = ['cotton', 'coal', 'iron', 'manufacturer', 'pottery', 'brewery'];
 
     for (const type of typeOrder) {
       const tiles = me.tiles[type] || [];
       const d = INDUSTRY_DISPLAY[type];
 
+      // 產業行
       const row = document.createElement('div');
-      row.className = 'tile-row';
+      row.className = 'ind-row';
 
-      // Label
-      const label = document.createElement('div');
-      label.className = 'tile-row-label';
-      label.style.background = d.iconBg;
-      label.style.color = d.textColor;
-      label.textContent = d.short;
-      row.appendChild(label);
+      // 產業標題
+      const header = document.createElement('div');
+      header.className = 'ind-header';
+      header.style.borderLeftColor = d.iconBg;
+      header.innerHTML = `<span style="color:${d.iconBg}">${d.label}</span> <span class="ind-count">${tiles.length}</span>`;
+      row.appendChild(header);
 
-      // Tile chips
-      const levelsDiv = document.createElement('div');
-      levelsDiv.className = 'tile-row-levels';
+      // 板塊網格
+      const grid = document.createElement('div');
+      grid.className = 'ind-grid';
 
-      if (tiles.length === 0) {
-        const empty = document.createElement('span');
-        empty.style.cssText = 'font-size:.8em;color:var(--text-dim);padding:2px';
-        empty.textContent = '（無）';
-        levelsDiv.appendChild(empty);
-      } else {
-        // Group by level
-        const byLevel = {};
-        for (const t of tiles) {
-          if (!byLevel[t.level]) byLevel[t.level] = { tile: t, count: 0 };
-          byLevel[t.level].count++;
-        }
+      // 按等級分組
+      const byLevel = {};
+      for (const t of tiles) {
+        if (!byLevel[t.level]) byLevel[t.level] = [];
+        byLevel[t.level].push(t);
+      }
 
-        for (const [lv, info] of Object.entries(byLevel)) {
-          const t = info.tile;
-          const chip = document.createElement('div');
-          const eraLocked = (era === 'canal' && t.eraMin === 'rail');
-          chip.className = `tile-chip ${eraLocked ? 'era-locked' : 'available'}`;
-          chip.title = this._tileSummary(t, d);
+      for (const [lv, lvTiles] of Object.entries(byLevel)) {
+        const t = lvTiles[0];
+        const eraLocked = (era === 'canal' && t.eraMin === 'rail');
+        const noDev = t.noDevelop;
 
-          // Level + count
-          let lvText = `Lv${lv}`;
-          if (info.count > 1) lvText += `\u00D7${info.count}`;
+        for (let idx = 0; idx < lvTiles.length; idx++) {
+          const tile = document.createElement('div');
+          tile.className = `ind-tile ${eraLocked ? 'locked' : ''}`;
+          tile.style.borderTopColor = d.iconBg;
 
-          // Cost summary
-          let costText = `\u00A3${t.cost}`;
-          if (t.coalCost > 0) costText += ` ${t.coalCost}煤`;
-          if (t.ironCost > 0) costText += ` ${t.ironCost}鐵`;
+          // 等級（羅馬數字）
+          const lvNum = ROMAN[t.level] || t.level;
 
-          // VP/income
-          let resText = `${t.vp}分 +${t.income}收`;
+          // 費用圖標
+          let costIcons = '';
+          if (t.coalCost > 0) costIcons += `<span class="res-icon coal">${t.coalCost}</span>`;
+          if (t.ironCost > 0) costIcons += `<span class="res-icon iron">${t.ironCost}</span>`;
+
+          // 資源/啤酒
+          let prodText = '';
           if (t.resourceAmount > 0) {
-            const rn = type === 'coal' ? '煤' : type === 'iron' ? '鐵' : '酒';
-            resText += ` ${t.resourceAmount}${rn}`;
+            const rn = type === 'coal' ? '⬛' : type === 'iron' ? '🟠' : '🍺';
+            prodText = `${rn}${t.resourceAmount}`;
           }
-          if (t.sellBeer > 0) resText += ` 需${t.sellBeer}酒`;
+          if (t.sellBeer > 0) prodText = `🍺${t.sellBeer}`;
 
-          chip.innerHTML = `
-            <span class="tc-lv">${lvText}</span>
-            <span class="tc-cost">${costText}</span>
-            <span class="tc-res">${resText}</span>
+          // 背景圖片
+          const imgFile = `/img/cards/industry-${type}.png`;
+          tile.innerHTML = `
+            <div class="it-bg" style="background-image:url('${imgFile}')"></div>
+            <div class="it-content">
+              <div class="it-level">${lvNum}</div>
+              <div class="it-cost">£${t.cost} ${costIcons}</div>
+              <div class="it-stats">
+                <span class="it-vp">${t.vp}★</span>
+                <span class="it-inc">+${t.income}</span>
+              </div>
+              ${prodText ? `<div class="it-prod">${prodText}</div>` : ''}
+              ${noDev ? '<div class="it-nodev">💡</div>' : ''}
+              ${eraLocked ? '<div class="it-era">🚂</div>' : ''}
+            </div>
           `;
 
-          if (eraLocked) {
-            chip.innerHTML += '<span style="font-size:.7em;color:rgba(255,80,80,.5)">鐵路限定</span>';
-          }
+          tile.title = `${d.label} ${lvNum}\n費用: £${t.cost}${t.coalCost?' +煤×'+t.coalCost:''}${t.ironCost?' +鐵×'+t.ironCost:''}\n分數: ${t.vp} VP | 收入: +${t.income}格${t.resourceAmount ? '\n產出: '+t.resourceAmount : ''}${t.sellBeer ? '\n販賣需啤酒×'+t.sellBeer : ''}${noDev?'\n💡不能研發':''}${eraLocked?'\n🚂鐵路時代限定':''}`;
 
-          levelsDiv.appendChild(chip);
+          grid.appendChild(tile);
         }
       }
 
-      row.appendChild(levelsDiv);
+      if (tiles.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'ind-empty';
+        empty.textContent = '全部用完';
+        grid.appendChild(empty);
+      }
+
+      row.appendChild(grid);
       c.appendChild(row);
     }
-  }
-
-  _tileSummary(t, d) {
-    let s = `${d.label} 等級${t.level}\n`;
-    s += `費用：£${t.cost}`;
-    if (t.coalCost) s += ` + 煤炭×${t.coalCost}`;
-    if (t.ironCost) s += ` + 鐵×${t.ironCost}`;
-    s += `\n收入：+${t.income} | 分數：${t.vp} | 路線分：${t.linkVP}`;
-    if (t.resourceAmount > 0) {
-      const rn = t.type === 'coal' ? '煤炭' : t.type === 'iron' ? '鐵' : '啤酒';
-      s += `\n產出：${rn}×${t.resourceAmount}`;
-    }
-    if (t.sellBeer > 0) s += `\n販賣需要：啤酒×${t.sellBeer}`;
-    if (t.eraMin === 'rail') s += '\n（僅限鐵路時代）';
-    return s;
   }
 
   /* ─── 收入軌道 ─── */
@@ -252,33 +250,63 @@ class GameUI {
       if (i === this.selectedCardIndex) el.classList.add('selected');
 
       let typeLabel, nameLabel, detailLabel = '';
+      let cardImgFile = null;
+
       if (card.type === 'location') {
         typeLabel = '地點牌';
         nameLabel = card.name;
         detailLabel = '在此城市建造';
+        cardImgFile = `location-${card.location}.png`;
       } else if (card.type === 'industry') {
         typeLabel = '產業牌';
         const d = INDUSTRY_DISPLAY[card.industry];
         nameLabel = d ? `${d.label}` : card.name;
         detailLabel = '在網路上任意處建造';
+        cardImgFile = `industry-${card.industry}.png`;
       } else if (card.type === 'wild_location') {
         typeLabel = '萬能牌';
         nameLabel = '任意地點';
         detailLabel = '可在任何城市建造';
+        cardImgFile = 'wild-location.png';
       } else if (card.type === 'wild_industry') {
         typeLabel = '萬能牌';
         nameLabel = '任意產業';
         detailLabel = '可建造任何類型';
+        cardImgFile = 'wild-industry.png';
       } else {
         typeLabel = card.type;
         nameLabel = card.name;
       }
 
-      el.innerHTML = `
-        <div class="card-type">${typeLabel}</div>
-        <div class="card-name">${nameLabel}</div>
-        <div class="card-detail">${detailLabel}</div>
-      `;
+      // 檢查圖片是否存在（用快取避免重複檢查）
+      if (!window._cardImgCache) window._cardImgCache = {};
+      const imgPath = cardImgFile ? `/img/cards/${cardImgFile}` : null;
+      const hasImg = imgPath && (window._cardImgCache[imgPath] !== false);
+
+      if (hasImg && imgPath) {
+        // 有圖片時用圖片背景
+        if (window._cardImgCache[imgPath] === undefined) {
+          // 第一次：檢查圖片是否存在
+          const testImg = new Image();
+          testImg.onload = () => { window._cardImgCache[imgPath] = true; };
+          testImg.onerror = () => { window._cardImgCache[imgPath] = false; this.updateHand(state); };
+          testImg.src = imgPath;
+        }
+        el.innerHTML = `
+          <div class="card-img" style="background-image:url('${imgPath}')"></div>
+          <div class="card-overlay">
+            <div class="card-type">${typeLabel}</div>
+            <div class="card-name">${nameLabel}</div>
+          </div>
+        `;
+      } else {
+        // 沒圖片時用原本的文字卡片
+        el.innerHTML = `
+          <div class="card-type">${typeLabel}</div>
+          <div class="card-name">${nameLabel}</div>
+          <div class="card-detail">${detailLabel}</div>
+        `;
+      }
 
       el.addEventListener('click', () => {
         this.selectedCardIndex = this.selectedCardIndex === i ? -1 : i;

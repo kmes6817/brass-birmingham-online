@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>格子位置校正（每格獨立）</title>
+<style>
+  body{margin:0;background:#111;color:#fff;font-family:sans-serif;overflow:hidden}
+  canvas{cursor:crosshair}
+  #info{position:fixed;top:10px;left:10px;background:rgba(0,0,0,.9);padding:12px;border-radius:8px;font-size:12px;z-index:10;max-width:280px}
+  #output{position:fixed;top:10px;right:10px;width:380px;background:rgba(0,0,0,.9);padding:10px;border-radius:8px;font-size:9px;max-height:90vh;overflow:auto;font-family:monospace;z-index:10;white-space:pre}
+  button{margin:2px;padding:4px 8px;border:none;border-radius:4px;cursor:pointer;font-size:11px;background:#d4a843;color:#000;font-weight:bold}
+  button:hover{filter:brightness(1.2)}
+  .btn-green{background:#3ba55d;color:#fff}
+</style></head><body>
+<div id="info">
+  <b>每格獨立校正</b><br>
+  點擊格子選中 → 方向鍵微調位置<br>
+  Shift+方向鍵 大步<br><br>
+  <span id="status">點擊一個格子開始</span><br><br>
+  格子大小：<input type="range" id="slot-size" min="16" max="48" value="32" oninput="changeSize(this.value)"> <span id="size-label">32</span>px<br>
+  格子間距：<input type="range" id="slot-gap" min="0" max="20" value="4" oninput="changeGap(this.value)"> <span id="gap-label">4</span>px<br><br>
+  <div id="type-editor" style="display:none;margin-bottom:8px">
+    產業類型：<select id="type-select" onchange="changeType(this.value)">
+      <option value="棉">棉花</option>
+      <option value="煤">煤礦</option>
+      <option value="鐵">鐵廠</option>
+      <option value="工">工廠</option>
+      <option value="陶">陶瓷</option>
+      <option value="酒">啤酒</option>
+      <option value="棉/工">棉/工</option>
+      <option value="煤/工">煤/工</option>
+      <option value="煤/鐵">煤/鐵</option>
+      <option value="鐵/工">鐵/工</option>
+      <option value="陶/工">陶/工</option>
+      <option value="工/棉">工/棉</option>
+      <option value="工/鐵">工/鐵</option>
+      <option value="工/煤">工/煤</option>
+    </select>
+  </div>
+  <button class="btn-green" onclick="copyOutput()">複製座標</button>
+  <button onclick="resetSelected()">重置選中</button>
+  <button onclick="resetAll()">全部重置</button>
+</div>
+<div id="output"></div>
+<canvas id="c"></canvas>
+
+<script src="/js/boardData.js?v=30"></script>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+canvas.width = 1000; canvas.height = 1000;
+canvas.style.width = '100vh'; canvas.style.height = '100vh';
+canvas.style.margin = '0 auto'; canvas.style.display = 'block';
+
+let SLOT_W = 32, SLOT_H = 32, SLOT_GAP = 4;
+
+function changeSize(val) {
+  SLOT_W = SLOT_H = parseInt(val);
+  document.getElementById('size-label').textContent = val;
+  draw();
+}
+function changeGap(val) {
+  SLOT_GAP = parseInt(val);
+  document.getElementById('gap-label').textContent = val;
+  draw();
+}
+function changeType(val) {
+  if (!selectedSlot) return;
+  if (!SLOT_TYPES[selectedSlot.city]) SLOT_TYPES[selectedSlot.city] = [];
+  SLOT_TYPES[selectedSlot.city][selectedSlot.index] = val;
+  draw();
+}
+
+// 每個格子的產業類型
+const SLOT_TYPES = {"leek":["棉/工","煤"],"stoke-on-trent":["陶/工","鐵","工/棉"],"stone":["棉/工","酒"],"uttoxeter":["棉/工","酒"],"stafford":["陶/工","工"],"cannock":["煤","工"],"burton":["酒","煤/工"],"tamworth":["棉/工","煤"],"walsall":["工/鐵","酒"],"wolverhampton":["工","煤/工"],"coalbrookdale":["鐵","煤/鐵","酒"],"birmingham":["棉/工","工","鐵/工","工"],"dudley":["煤","鐵"],"derby":["棉/工","酒","工"],"belper":["棉/工","煤"],"nuneaton":["棉/工","酒"],"coventry":["陶/工","鐵/工","工"],"kidderminster":["棉/工","煤"],"worcester":["棉/工","棉/工"],"redditch":["工/煤","鐵"],"farm-brewery-cannock":["酒"],"farm-brewery-kidwor":["酒"]};
+
+// 產業簡稱顏色
+const TYPE_COLORS = {'棉':'#f0f0f0','煤':'#555','鐵':'#cd853f','工':'#deb887','陶':'#ff6347','酒':'#ffd700'};
+
+// 每個城市每個格子的數量（從伺服器資料）
+const CITY_SLOTS = {
+  'leek':2, 'stoke-on-trent':3, 'stone':2, 'uttoxeter':2,
+  'stafford':2, 'cannock':2, 'burton':2, 'tamworth':2,
+  'walsall':2, 'wolverhampton':2, 'coalbrookdale':3,
+  'birmingham':4, 'dudley':2, 'derby':3, 'belper':2,
+  'nuneaton':2, 'coventry':3, 'kidderminster':2,
+  'worcester':2, 'redditch':2,
+  'farm-brewery-cannock':1, 'farm-brewery-kidwor':1
+};
+
+// 每個格子的獨立偏移：slotOffsets[cityId][slotIndex] = {x, y}
+const slotOffsets = {};
+for (const [cid, n] of Object.entries(CITY_SLOTS)) {
+  slotOffsets[cid] = [];
+  for (let i = 0; i < n; i++) {
+    // 載入已存的偏移
+    const existing = (typeof CITY_SLOT_OFFSETS !== 'undefined' && CITY_SLOT_OFFSETS[cid + '-' + i]);
+    slotOffsets[cid][i] = existing ? {...existing} : {x:0, y:0};
+  }
+}
+
+let selectedSlot = null; // {city, index}
+
+const img = new Image();
+img.src = BOARD_IMAGE_SRC;
+img.onload = () => draw();
+
+function getSlotPos(cid, idx) {
+  const pos = BOARD_CITIES[cid];
+  if (!pos) return null;
+  const n = CITY_SLOTS[cid] || 1;
+  const totalW = n * (SLOT_W + SLOT_GAP) - SLOT_GAP;
+  const off = slotOffsets[cid][idx] || {x:0,y:0};
+  return {
+    x: pos.x - totalW/2 + idx * (SLOT_W + SLOT_GAP) + off.x,
+    y: pos.y - SLOT_H/2 + 6 + off.y
+  };
+}
+
+function draw() {
+  ctx.clearRect(0, 0, 1000, 1000);
+  if (img.complete) {
+    ctx.drawImage(img, 0, 0, 1000, 1000);
+    ctx.fillStyle = 'rgba(0,0,0,0.1)';
+    ctx.fillRect(0, 0, 1000, 1000);
+  }
+
+  // 畫每個格子
+  for (const [cid, n] of Object.entries(CITY_SLOTS)) {
+    for (let i = 0; i < n; i++) {
+      const sp = getSlotPos(cid, i);
+      if (!sp) continue;
+
+      const isSel = selectedSlot && selectedSlot.city === cid && selectedSlot.index === i;
+
+      // 產業類型
+      const typeStr = (SLOT_TYPES[cid] && SLOT_TYPES[cid][i]) || '?';
+      const firstType = typeStr.split('/')[0];
+      const typeColor = TYPE_COLORS[firstType] || '#888';
+
+      // 格子背景填色
+      if (isSel) {
+        ctx.fillStyle = 'rgba(0,255,0,0.45)';
+      } else {
+        ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      }
+      ctx.fillRect(sp.x, sp.y, SLOT_W, SLOT_H);
+
+      // 產業顏色頂條
+      ctx.fillStyle = typeColor;
+      ctx.fillRect(sp.x, sp.y, SLOT_W, 6);
+
+      // 格子邊框
+      ctx.strokeStyle = isSel ? '#0f0' : '#ff0';
+      ctx.lineWidth = isSel ? 3 : 2;
+      ctx.strokeRect(sp.x, sp.y, SLOT_W, SLOT_H);
+
+      // 產業類型文字
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 9px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText(typeStr, sp.x + SLOT_W/2, sp.y + 18);
+
+      // 格子編號（底部小字）
+      ctx.fillStyle = isSel ? '#0f0' : 'rgba(255,255,255,0.5)';
+      ctx.font = '8px sans-serif';
+      ctx.fillText('#'+i, sp.x + SLOT_W/2, sp.y + SLOT_H - 3);
+    }
+
+    // 城市名（在格子上方）
+    const pos = BOARD_CITIES[cid];
+    if (pos) {
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.font = '8px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText(cid, pos.x, pos.y - SLOT_H/2 - 2);
+    }
+  }
+
+  updateOutput();
+  if (selectedSlot) {
+    const off = slotOffsets[selectedSlot.city][selectedSlot.index];
+    document.getElementById('status').textContent =
+      selectedSlot.city + '[' + selectedSlot.index + '] offset(' + off.x + ',' + off.y + ')';
+  }
+}
+
+// 點擊選格子
+canvas.addEventListener('click', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) * (1000 / rect.width);
+  const my = (e.clientY - rect.top) * (1000 / rect.height);
+
+  selectedSlot = null;
+  for (const [cid, n] of Object.entries(CITY_SLOTS)) {
+    for (let i = 0; i < n; i++) {
+      const sp = getSlotPos(cid, i);
+      if (!sp) continue;
+      if (mx >= sp.x && mx <= sp.x + SLOT_W && my >= sp.y && my <= sp.y + SLOT_H) {
+        selectedSlot = {city: cid, index: i};
+        break;
+      }
+    }
+    if (selectedSlot) break;
+  }
+  // 顯示/隱藏類型編輯器
+  const editor = document.getElementById('type-editor');
+  if (selectedSlot) {
+    editor.style.display = 'block';
+    const curType = (SLOT_TYPES[selectedSlot.city] && SLOT_TYPES[selectedSlot.city][selectedSlot.index]) || '?';
+    document.getElementById('type-select').value = curType;
+  } else {
+    editor.style.display = 'none';
+  }
+  draw();
+});
+
+// 方向鍵移動
+document.addEventListener('keydown', (e) => {
+  if (!selectedSlot) return;
+  const step = e.shiftKey ? 6 : 1;
+  const off = slotOffsets[selectedSlot.city][selectedSlot.index];
+  if (e.key === 'ArrowUp') { e.preventDefault(); off.y -= step; }
+  if (e.key === 'ArrowDown') { e.preventDefault(); off.y += step; }
+  if (e.key === 'ArrowLeft') { e.preventDefault(); off.x -= step; }
+  if (e.key === 'ArrowRight') { e.preventDefault(); off.x += step; }
+  // Tab 切換到下一個格子
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const cid = selectedSlot.city;
+    const n = CITY_SLOTS[cid];
+    let nextIdx = selectedSlot.index + 1;
+    if (nextIdx >= n) {
+      // 下一個城市
+      const cities = Object.keys(CITY_SLOTS);
+      const cidIdx = cities.indexOf(cid);
+      const nextCid = cities[(cidIdx + 1) % cities.length];
+      selectedSlot = {city: nextCid, index: 0};
+    } else {
+      selectedSlot = {city: cid, index: nextIdx};
+    }
+  }
+  draw();
+});
+
+function resetSelected() {
+  if (!selectedSlot) return;
+  slotOffsets[selectedSlot.city][selectedSlot.index] = {x:0, y:0};
+  draw();
+}
+
+function resetAll() {
+  for (const [cid, arr] of Object.entries(slotOffsets)) {
+    for (let i = 0; i < arr.length; i++) arr[i] = {x:0, y:0};
+  }
+  draw();
+}
+
+function updateOutput() {
+  let out = `// 格子大小: ${SLOT_W}px, 間距: ${SLOT_GAP}px\n\n`;
+  out += '// 每個格子的獨立偏移\nconst CITY_SLOT_OFFSETS = {\n';
+  for (const [cid, arr] of Object.entries(slotOffsets)) {
+    for (let i = 0; i < arr.length; i++) {
+      if (arr[i].x !== 0 || arr[i].y !== 0) {
+        const typeStr = (SLOT_TYPES[cid] && SLOT_TYPES[cid][i]) || '?';
+        out += `  '${cid}-${i}': { x: ${arr[i].x}, y: ${arr[i].y} }, // ${typeStr}\n`;
+      }
+    }
+  }
+  out += '};\n';
+  document.getElementById('output').textContent = out;
+}
+
+function copyOutput() {
+  navigator.clipboard.writeText(document.getElementById('output').textContent).then(() => {
+    document.getElementById('status').textContent = '已複製！';
+  });
+}
+</script></body></html>

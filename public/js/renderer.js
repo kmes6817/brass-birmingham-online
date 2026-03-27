@@ -12,9 +12,9 @@ class BoardRenderer {
     this.hoveredMerchant = null;
     this.gameState = null;
 
-    // Slot geometry
+    // Slot geometry（正方形）
     this.SLOT_W = 32;
-    this.SLOT_H = 40;
+    this.SLOT_H = 32;
     this.SLOT_GAP = 4;
 
     // 縮放和平移
@@ -407,13 +407,15 @@ class BoardRenderer {
     const S = this.SLOT_W, H = this.SLOT_H, G = this.SLOT_GAP;
     const n = cd.slots.length;
     const totalW = n * (S + G) - G;
-    const x0 = pos.x - totalW / 2;
-    const y0 = pos.y - H / 2 + 6;
+    const baseX = pos.x - totalW / 2;
+    const baseY = pos.y - H / 2 + 6;
 
     for (let i = 0; i < n; i++) {
       const slot = cd.slots[i];
-      const sx = x0 + i * (S + G);
-      const sy = y0;
+      // 每個格子獨立偏移
+      const slotOff = CITY_SLOT_OFFSETS[cid + '-' + i] || { x: 0, y: 0 };
+      const sx = baseX + i * (S + G) + slotOff.x;
+      const sy = baseY + slotOff.y;
       const isSelSlot = this.selectedCity === cid && this.selectedSlot === i;
 
       if (slot.built) {
@@ -843,12 +845,14 @@ class BoardRenderer {
     const S = this.SLOT_W, H = this.SLOT_H, G = this.SLOT_GAP;
     const n = cd.slots.length;
     const totalW = n * (S + G) - G;
-    const x0 = pos.x - totalW / 2;
-    const y0 = pos.y - H / 2 + 6;
+    const baseX = pos.x - totalW / 2;
+    const baseY = pos.y - H / 2 + 6;
 
     for (let i = 0; i < n; i++) {
-      const sx = x0 + i * (S + G);
-      if (mx >= sx && mx <= sx + S && my >= y0 && my <= y0 + H) return i;
+      const slotOff = CITY_SLOT_OFFSETS[cid + '-' + i] || { x: 0, y: 0 };
+      const sx = baseX + i * (S + G) + slotOff.x;
+      const sy = baseY + slotOff.y;
+      if (mx >= sx && mx <= sx + S && my >= sy && my <= sy + H) return i;
     }
     return -1;
   }
