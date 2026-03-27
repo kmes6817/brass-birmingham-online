@@ -32,7 +32,7 @@ const industryData = {
     name: '煤礦',
     textColor: '#FFFFFF',
     tiles: [
-      { level: 1, cost: 5,  coalCost: 0, ironCost: 0, income: 4, vp: 1, linkVP: 2, resourceAmount: 2, era: 'both' },
+      { level: 1, cost: 5,  coalCost: 0, ironCost: 0, income: 4, vp: 1, linkVP: 2, resourceAmount: 2, era: 'canal' },
       { level: 2, cost: 7,  coalCost: 0, ironCost: 0, income: 7, vp: 2, linkVP: 1, resourceAmount: 3, era: 'both' },
       { level: 3, cost: 8,  coalCost: 0, ironCost: 1, income: 6, vp: 3, linkVP: 1, resourceAmount: 4, era: 'both' },
       { level: 4, cost: 10, coalCost: 0, ironCost: 1, income: 5, vp: 4, linkVP: 1, resourceAmount: 5, era: 'both' }
@@ -54,7 +54,7 @@ const industryData = {
   [T.BREWERY]: {
     name: '啤酒廠',
     tiles: [
-      { level: 1, cost: 5, coalCost: 0, ironCost: 1, income: 4, vp: 4,  linkVP: 2, resourceAmount: 1, era: 'both' },
+      { level: 1, cost: 5, coalCost: 0, ironCost: 1, income: 4, vp: 4,  linkVP: 2, resourceAmount: 1, era: 'canal' },
       { level: 2, cost: 7, coalCost: 0, ironCost: 1, income: 5, vp: 5,  linkVP: 2, resourceAmount: 1, era: 'both' },
       { level: 3, cost: 9, coalCost: 0, ironCost: 1, income: 5, vp: 7,  linkVP: 2, resourceAmount: 2, era: 'both' },
       { level: 4, cost: 9, coalCost: 0, ironCost: 1, income: 5, vp: 10, linkVP: 2, resourceAmount: 2, era: 'rail' }
