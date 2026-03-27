@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>城市位置校正工具</title>
+<style>
+  body{margin:0;background:#111;color:#fff;font-family:sans-serif;overflow:hidden}
+  canvas{cursor:crosshair}
+  #info{position:fixed;top:10px;left:10px;background:rgba(0,0,0,0.8);padding:10px;border-radius:8px;font-size:13px;z-index:10;max-width:300px}
+  #output{position:fixed;top:10px;right:10px;width:340px;background:rgba(0,0,0,0.9);padding:10px;border-radius:8px;font-size:10px;max-height:90vh;overflow:auto;font-family:monospace;z-index:10;white-space:pre}
+  #copy-btn{position:fixed;top:10px;right:360px;background:#d4a843;color:#000;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;z-index:10}
+  .legend{margin-top:8px;font-size:11px}
+  .legend span{display:inline-block;width:12px;height:12px;border-radius:50%;vertical-align:middle;margin-right:4px}
+</style></head><body>
+<div id="info">
+  拖動圓點到正確的城市/市場中心位置<br>
+  <span id="status">載入中...</span>
+  <div class="legend">
+    <span style="background:#f00"></span>城市
+    <span style="background:#ff0;margin-left:8px"></span>商人
+    <span style="background:#0f0;margin-left:8px"></span>農莊
+    <span style="background:#f0f;margin-left:8px"></span>市場
+  </div>
+  <div style="margin-top:8px;font-size:12px">
+    格子寬<input type="number" id="sw" value="14" style="width:40px" onchange="updateSlots()">
+    高<input type="number" id="sh" value="14" style="width:40px" onchange="updateSlots()">
+    水平距<input type="number" id="gx" value="3" style="width:40px" onchange="updateSlots()">
+    垂直距<input type="number" id="gy" value="8" style="width:40px" onchange="updateSlots()">
+  </div>
+</div>
+<button id="copy-btn" onclick="navigator.clipboard.writeText(document.getElementById('output').textContent).then(()=>this.textContent='已複製！');setTimeout(()=>this.textContent='複製座標',1200)">複製座標</button>
+<div id="output"></div>
+<canvas id="c"></canvas>
+
+<!-- 載入 boardData.js 來讀取目前座標 -->
+<script src="/js/boardData.js?v=9"></script>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+canvas.width = 1000; canvas.height = 1000;
+canvas.style.width = '100vh'; canvas.style.height = '100vh';
+canvas.style.margin = '0 auto'; canvas.style.display = 'block';
+
+// 從 boardData.js 讀取目前座標
+const points = {};
+for (const [name, pos] of Object.entries(BOARD_CITIES)) {
+  points[name] = { x: pos.x, y: pos.y, type: name.startsWith('farm-') ? 'farm' : 'city' };
+}
+for (const [name, pos] of Object.entries(BOARD_MERCHANTS)) {
+  points[name] = { x: pos.x, y: pos.y, type: 'merchant' };
+}
+
+// 市場位置（紫色）— 只要校正起點，格子會自動往下排列
+points['COAL-MARKET-TOP'] = { x: 935, y: 90, type: 'market' };
+points['IRON-MARKET-TOP'] = { x: 935, y: 460, type: 'market' };
+
+console.log('載入了', Object.keys(points).length, '個點位');
+
+const img = new Image();
+img.src = '/img/board.jpg';
+let dragging = null;
+
+img.onload = () => {
+  document.getElementById('status').textContent = '圖片載入完成！拖動圓點校正位置（共 ' + Object.keys(points).length + ' 個點）';
+  draw();
+};
+
+function draw() {
+  ctx.clearRect(0, 0, 1000, 1000);
+  if (img.complete) ctx.drawImage(img, 0, 0, 1000, 1000);
+
+  for (const [name, p] of Object.entries(points)) {
+    const color = p.type === 'merchant' ? '#ff0' : p.type === 'farm' ? '#0f0' : p.type === 'market' ? '#f0f' : '#f00';
+    const activeColor = '#0ff';
+
+    ctx.fillStyle = dragging === name ? activeColor : color;
+    ctx.beginPath(); ctx.arc(p.x, p.y, 8, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#000'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(p.x, p.y, 8, 0, Math.PI*2); ctx.stroke();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(p.x, p.y, 8, 0, Math.PI*2); ctx.stroke();
+
+    const label = name.replace('merchant-','M:').replace('farm-brewery-','FB:');
+    ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center';
+    ctx.strokeStyle = '#000'; ctx.lineWidth = 3;
+    ctx.strokeText(label, p.x, p.y - 14);
+    ctx.fillStyle = '#fff';
+    ctx.fillText(label, p.x, p.y - 14);
+  }
+  // 預覽市場格子位置（每行2個，共7行煤/5行鐵）
+  // 可以在瀏覽器 Console 輸入 setSlotSize(w,h,gx,gy) 調整
+  const coalTop = points['COAL-MARKET-TOP'];
+  const ironTop = points['IRON-MARKET-TOP'];
+  const slotW = window._sw || 14, slotH = window._sh || 14;
+  const gapX = window._gx || 3, gapY = window._gy || 8;
+  const coalPrices = [8,8,7,6,5,5,4,4,3,3,2,2,1,1]; // 最貴→最便宜，14格
+  const ironPricesArr = [6,6,5,4,3,3,2,2,1,1]; // 10格
+
+  if (coalTop) {
+    ctx.strokeStyle = 'rgba(255,0,255,0.5)'; ctx.lineWidth = 1;
+    for (let i = 0; i < 14; i++) {
+      const row = Math.floor(i / 2);
+      const col = i % 2;
+      const x = coalTop.x + col * (slotW + gapX);
+      const y = coalTop.y + row * (slotH + gapY);
+      ctx.strokeRect(x, y, slotW, slotH);
+      // 黑點預覽
+      ctx.fillStyle = 'rgba(30,30,30,0.7)';
+      ctx.beginPath(); ctx.arc(x + slotW/2, y + slotH/2, 5, 0, Math.PI*2); ctx.fill();
+    }
+    // 價格標示（每行左邊）
+    for (let row = 0; row < 7; row++) {
+      const price = coalPrices[row * 2];
+      ctx.fillStyle = '#f0f'; ctx.font = '9px sans-serif'; ctx.textAlign = 'right';
+      ctx.fillText('£' + price, coalTop.x - 4, coalTop.y + row * (slotH + gapY) + 12);
+    }
+  }
+  if (ironTop) {
+    ctx.strokeStyle = 'rgba(100,150,255,0.5)'; ctx.lineWidth = 1;
+    for (let i = 0; i < 10; i++) {
+      const row = Math.floor(i / 2);
+      const col = i % 2;
+      const x = ironTop.x + col * (slotW + gapX);
+      const y = ironTop.y + row * (slotH + gapY);
+      ctx.strokeRect(x, y, slotW, slotH);
+      ctx.fillStyle = 'rgba(70,120,200,0.7)';
+      ctx.beginPath(); ctx.arc(x + slotW/2, y + slotH/2, 5, 0, Math.PI*2); ctx.fill();
+    }
+    for (let row = 0; row < 5; row++) {
+      const price = ironPricesArr[row * 2];
+      ctx.fillStyle = '#6af'; ctx.font = '9px sans-serif'; ctx.textAlign = 'right';
+      ctx.fillText('£' + price, ironTop.x - 4, ironTop.y + row * (slotH + gapY) + 12);
+    }
+  }
+
+  updateOutput();
+}
+
+function updateOutput() {
+  let out = '// === 城市 ===\nconst BOARD_CITIES = {\n';
+  for (const [name, p] of Object.entries(points)) {
+    if (p.type === 'city' || p.type === 'farm') {
+      const pad = ("'" + name + "':").padEnd(30);
+      out += `  ${pad} { x: ${p.x}, y: ${p.y} },\n`;
+    }
+  }
+  out += '};\n\n// === 商人 ===\nconst BOARD_MERCHANTS = {\n';
+  for (const [name, p] of Object.entries(points)) {
+    if (p.type === 'merchant') {
+      const pad = ("'" + name + "':").padEnd(30);
+      out += `  ${pad} { x: ${p.x}, y: ${p.y} },\n`;
+    }
+  }
+  out += '};\n\n// === 市場位置 ===\n';
+  const sw = window._sw || 14, sh = window._sh || 14, sgx = window._gx || 3, sgy = window._gy || 3;
+  out += `// 格子: ${sw}x${sh}, 間距: ${sgx},${sgy}\n`;
+  if (points['COAL-MARKET-TOP']) out += `// 煤炭市場起點: { x: ${points['COAL-MARKET-TOP'].x}, y: ${points['COAL-MARKET-TOP'].y} }\n`;
+  if (points['IRON-MARKET-TOP']) out += `// 鐵市場起點: { x: ${points['IRON-MARKET-TOP'].x}, y: ${points['IRON-MARKET-TOP'].y} }\n`;
+  document.getElementById('output').textContent = out;
+}
+
+function getMousePos(e) {
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: Math.round((e.clientX - rect.left) * (1000 / rect.width)),
+    y: Math.round((e.clientY - rect.top) * (1000 / rect.height))
+  };
+}
+
+canvas.addEventListener('mousedown', (e) => {
+  const m = getMousePos(e);
+  for (const [name, p] of Object.entries(points)) {
+    if (Math.hypot(m.x - p.x, m.y - p.y) < 15) {
+      dragging = name; break;
+    }
+  }
+});
+
+canvas.addEventListener('mousemove', (e) => {
+  if (!dragging) return;
+  const m = getMousePos(e);
+  points[dragging].x = m.x;
+  points[dragging].y = m.y;
+  document.getElementById('status').textContent = dragging + ' (' + m.x + ',' + m.y + ')';
+  draw();
+});
+
+canvas.addEventListener('mouseup', () => { dragging = null; });
+
+window.updateSlots = function() {
+  window._sw = +document.getElementById('sw').value;
+  window._sh = +document.getElementById('sh').value;
+  window._gx = +document.getElementById('gx').value;
+  window._gy = +document.getElementById('gy').value;
+  draw();
+};
+</script></body></html>

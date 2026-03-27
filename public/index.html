@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>工業革命：伯明翰 線上版</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Noto+Sans+TC:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+  <!-- ===================== 大廳 ===================== -->
+  <div id="lobby-view">
+    <div class="lobby-particles" aria-hidden="true"></div>
+
+    <div class="lobby-container">
+      <div class="lobby-logo">
+        <div class="logo-icon">
+          <svg viewBox="0 0 64 64" width="72" height="72"><path d="M32 4L8 18v28l24 14 24-14V18L32 4z" fill="none" stroke="#d4a843" stroke-width="2.5"/><path d="M22 30h4v12h-4zM30 24h4v18h-4zM38 28h4v14h-4z" fill="#d4a843"/><circle cx="32" cy="16" r="3" fill="#e94560"/></svg>
+        </div>
+        <h1>工業革命</h1>
+        <h2>伯明翰</h2>
+        <p class="lobby-subtitle">Brass: Birmingham &mdash; 線上多人對戰版</p>
+      </div>
+
+      <div id="login-section">
+        <div class="input-group">
+          <label for="player-name">你的名字</label>
+          <input type="text" id="player-name" placeholder="輸入你的暱稱..." maxlength="20" autocomplete="off">
+        </div>
+        <div class="lobby-buttons">
+          <button id="btn-create" class="btn-primary"><span class="btn-icon">+</span> 建立房間</button>
+          <button id="btn-join-toggle" class="btn-secondary"><span class="btn-icon">&rarr;</span> 加入房間</button>
+        </div>
+        <div id="join-section" style="display:none">
+          <input type="text" id="room-code" placeholder="房間代碼" maxlength="6" autocomplete="off" style="text-transform:uppercase;letter-spacing:4px;text-align:center">
+          <button id="btn-join" class="btn-primary">加入</button>
+        </div>
+        <div id="public-url-display" style="display:none">
+          <p class="url-label">分享此連結給朋友（點擊複製）：</p>
+          <div class="url-box" id="public-url-text"></div>
+        </div>
+      </div>
+
+      <div id="room-section" style="display:none">
+        <div class="room-header">
+          <p class="room-label">房間代碼</p>
+          <h3 id="room-id" class="room-code"></h3>
+          <p class="room-hint">分享代碼或連結給你的朋友</p>
+          <div id="room-public-url" style="display:none" class="url-box small"></div>
+        </div>
+        <div id="player-list"></div>
+        <div class="room-actions">
+          <button id="btn-ready" class="btn-ready">準備</button>
+          <button id="btn-start" class="btn-gold" disabled>開始遊戲</button>
+        </div>
+      </div>
+
+      <div id="error-display" class="error"></div>
+      <div class="lobby-footer">2&ndash;4 人 &middot; 運河時代 &amp; 鐵路時代 &middot; 即時線上對戰</div>
+    </div>
+  </div>
+
+  <!-- ===================== 遊戲畫面 ===================== -->
+  <div id="game-view" style="display:none">
+
+    <!-- 頂部資訊列 -->
+    <div id="top-bar">
+      <div id="era-badge"><span id="era-icon"></span><span id="era-text">運河時代</span></div>
+      <div id="turn-display">等待中...</div>
+      <div id="market-display">
+        <div class="market-chip coal"><span class="market-label">煤炭</span><span id="coal-market">13</span><span class="market-price" id="coal-price">&pound;1</span></div>
+        <div class="market-chip iron"><span class="market-label">鐵</span><span id="iron-market">6</span><span class="market-price" id="iron-price">&pound;2</span></div>
+        <div id="deck-display" class="market-chip deck"><span class="market-label">牌庫</span><span id="deck-count">0</span></div>
+      </div>
+    </div>
+
+    <!-- 主遊戲區域 -->
+    <div id="game-area">
+
+      <!-- 左側：玩家面板 + 個人板塊 -->
+      <div id="left-panel">
+        <div id="player-panels"></div>
+        <div id="my-tiles-panel">
+          <h3 class="panel-title">我的產業板塊</h3>
+          <div id="my-tiles-content"></div>
+        </div>
+        <div id="income-track-panel">
+          <h3 class="panel-title">收入軌道</h3>
+          <div id="income-track-content"></div>
+        </div>
+      </div>
+
+      <!-- 中間：地圖 -->
+      <div id="board-container">
+        <canvas id="board-canvas" width="1000" height="1000"></canvas>
+      </div>
+
+      <!-- 右側：行動 + 記錄 -->
+      <div id="right-panel">
+        <div id="action-panel">
+          <h3 class="panel-title">行動選擇</h3>
+          <div id="action-buttons">
+            <button class="action-btn" data-action="build"><span class="ab-icon">&#9878;</span>建造</button>
+            <button class="action-btn" data-action="network"><span class="ab-icon">&#8644;</span>建路</button>
+            <button class="action-btn" data-action="develop"><span class="ab-icon">&#9650;</span>研發</button>
+            <button class="action-btn" data-action="sell"><span class="ab-icon">&#163;</span>販賣</button>
+            <button class="action-btn" data-action="loan"><span class="ab-icon">&#9878;</span>貸款</button>
+            <button class="action-btn" data-action="scout"><span class="ab-icon">&#9788;</span>偵查</button>
+            <button class="action-btn pass" data-action="pass"><span class="ab-icon">&#10145;</span>跳過</button>
+          </div>
+          <button id="btn-auto-pass" class="action-btn" style="margin-top:8px;background:rgba(233,69,96,0.15);border-color:rgba(233,69,96,0.3);color:#f88;width:100%">
+            <span class="ab-icon">&#9889;</span>持續自動跳過
+          </button>
+        </div>
+
+        <div id="action-detail" style="display:none">
+          <h4 id="action-detail-title"></h4>
+          <div id="action-detail-content"></div>
+          <div class="action-detail-buttons">
+            <button id="btn-confirm-action" class="btn-confirm">確認</button>
+            <button id="btn-cancel-action" class="btn-cancel">取消</button>
+          </div>
+        </div>
+
+        <div id="game-log">
+          <h3 class="panel-title">遊戲記錄</h3>
+          <div id="log-content"></div>
+        </div>
+
+        <div id="chat-area">
+          <input type="text" id="chat-input" placeholder="輸入聊天訊息..." maxlength="120" autocomplete="off">
+        </div>
+      </div>
+    </div>
+
+    <!-- 底部：手牌 -->
+    <div id="hand-area">
+      <div id="hand-header">
+        <span class="hand-label">你的手牌</span>
+        <span id="hand-count" class="hand-badge">0</span>
+      </div>
+      <div id="hand-cards"></div>
+    </div>
+
+    <!-- 選擇彈窗 -->
+    <div id="selection-overlay" style="display:none">
+      <div id="selection-content">
+        <h3 id="selection-title"></h3>
+        <div id="selection-options"></div>
+        <button id="btn-close-selection" class="btn-cancel">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== 遊戲結束 ===================== -->
+  <div id="game-over-overlay" style="display:none">
+    <div id="game-over-content">
+      <div class="go-trophy">&#127942;</div>
+      <h2>遊戲結束</h2>
+      <div id="final-scores"></div>
+      <button id="btn-back-lobby" class="btn-primary">返回大廳</button>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/boardData.js?v=25"></script>
+  <script src="/js/renderer.js?v=25"></script>
+  <script src="/js/ui.js?v=25"></script>
+  <script src="/js/input.js?v=25"></script>
+  <script src="/js/lobby.js?v=25"></script>
+  <script src="/js/main.js?v=25"></script>
+</body>
+</html>
