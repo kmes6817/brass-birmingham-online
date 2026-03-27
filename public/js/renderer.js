@@ -12,9 +12,9 @@ class BoardRenderer {
     this.hoveredMerchant = null;
     this.gameState = null;
 
-    // Slot geometry（正方形）
-    this.SLOT_W = 32;
-    this.SLOT_H = 32;
+    // Slot geometry（正方形 42px）
+    this.SLOT_W = 42;
+    this.SLOT_H = 42;
     this.SLOT_GAP = 4;
 
     // 縮放和平移
