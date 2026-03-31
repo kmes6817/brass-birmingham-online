@@ -605,3 +605,130 @@ input[type="text"]::placeholder{color:var(--text-dim)}
   #top-bar{justify-content:center}
   #turn-display{flex:none;width:100%;text-align:center;order:1}
 }
+
+/* ===================== MERCHANT PANEL ===================== */
+#merchant-panel{
+  padding:6px 10px 10px;
+  border-top:1px solid rgba(255,255,255,.05);
+}
+#merchant-content{display:flex;flex-direction:column;gap:5px}
+
+.merchant-item{
+  padding:8px 10px;border-radius:7px;
+  background:rgba(255,255,255,.03);
+  border:1px solid rgba(255,255,255,.07);
+  transition:border-color .15s;
+  font-size:.85em;
+}
+.merchant-item.exhausted{
+  opacity:.45;
+  border-color:rgba(255,255,255,.03);
+}
+.mi-header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:4px;
+}
+.mi-name{font-weight:700;color:var(--text)}
+.mi-slots{
+  font-size:.78em;padding:1px 7px;border-radius:10px;
+  background:rgba(255,255,255,.07);color:var(--text-dim);
+}
+.mi-slots.full{background:rgba(255,60,60,.12);color:#f88}
+.mi-beer{
+  font-size:.8em;color:var(--text-dim);margin-bottom:3px;
+}
+.mi-accepts{
+  display:flex;flex-wrap:wrap;gap:3px;margin-bottom:3px;
+}
+.mi-accept-chip{
+  font-size:.72em;padding:1px 6px;border-radius:8px;
+  background:rgba(201,168,76,.12);color:var(--gold-light);
+  border:1px solid rgba(201,168,76,.2);
+}
+.mi-bonus{
+  font-size:.78em;color:#7dcea0;
+}
+
+/* ===================== ACTION BUTTON — needs card ===================== */
+.action-btn.needs-card{
+  opacity:.38;
+  position:relative;
+}
+.action-btn.needs-card::after{
+  content:'選牌';
+  position:absolute;right:10px;top:50%;transform:translateY(-50%);
+  font-size:.7em;color:var(--text-dim);letter-spacing:.5px;
+}
+
+/* ===================== LOG ENTRY COLORS ===================== */
+.log-entry.log-build{color:#7db8e8}
+.log-entry.log-network{color:#9b7dd4}
+.log-entry.log-sell{color:#7dcea0}
+.log-entry.log-loan{color:#f08070}
+.log-entry.log-develop{color:#e8c97d}
+.log-entry.log-scout{color:#80c8b0}
+.log-entry.log-score{color:var(--gold)}
+.log-entry.log-income{color:#7dcea0}
+.log-entry.log-era{color:var(--canal);font-weight:600}
+
+/* ===================== ERA TRANSITION OVERLAY ===================== */
+#era-transition-overlay{
+  position:fixed;inset:0;
+  background:rgba(0,0,0,.88);
+  backdrop-filter:blur(8px);
+  display:flex;align-items:center;justify-content:center;
+  z-index:5000;
+}
+#era-transition-content{
+  text-align:center;
+  animation:fadeUp .5s ease-out;
+  max-width:480px;
+  padding:0 20px;
+}
+#era-transition-icon{
+  font-size:5em;
+  margin-bottom:12px;
+  animation:float 2s ease-in-out infinite;
+}
+#era-transition-title{
+  font-family:'Cinzel',serif;
+  font-size:2.2em;font-weight:900;
+  color:var(--gold);letter-spacing:3px;
+  margin-bottom:20px;
+  text-shadow:0 0 30px rgba(201,168,76,.4);
+}
+#era-transition-scores{
+  display:flex;flex-direction:column;gap:8px;
+  margin-top:16px;
+}
+.et-score-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 20px;border-radius:8px;
+  background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.08);
+  font-size:1em;
+}
+.et-score-row .et-name{font-weight:600}
+.et-score-row .et-pts{
+  color:var(--gold);font-weight:700;font-size:1.05em;
+}
+
+/* ===================== STEP INDICATOR ===================== */
+.step-bar{
+  display:flex;align-items:center;gap:0;
+  margin-bottom:10px;font-size:.8em;
+}
+.step-item{
+  padding:3px 8px;border-radius:4px;
+  color:var(--text-dim);background:rgba(255,255,255,.04);
+  white-space:nowrap;
+}
+.step-item.active{
+  background:rgba(201,168,76,.2);color:var(--gold);font-weight:700;
+}
+.step-item.done{
+  color:var(--green);background:rgba(59,165,93,.1);
+}
+.step-sep{
+  color:var(--text-dim);padding:0 3px;font-size:.9em;
+}

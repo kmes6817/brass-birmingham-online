@@ -277,6 +277,39 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // === 時代轉換提示 ===
+  function showEraTransition(oldEra, newEra, scores, players, turnOrder) {
+    const ov = document.getElementById('era-transition-overlay');
+    if (!ov) return;
+    const icon = document.getElementById('era-transition-icon');
+    const title = document.getElementById('era-transition-title');
+    const scoresEl = document.getElementById('era-transition-scores');
+
+    icon.textContent = newEra === 'rail' ? '🚂' : '🏆';
+    title.textContent = newEra === 'rail' ? '運河時代結束 → 鐵路時代開始' : '遊戲結束';
+
+    if (scores) {
+      let html = '<div style="margin-top:12px;font-size:.95em">';
+      for (const pid of turnOrder) {
+        const s = scores[pid];
+        if (!s) continue;
+        const p = players[pid];
+        const idx = turnOrder.indexOf(pid);
+        const col = PLAYER_COLORS[idx] || '#fff';
+        html += `<div style="color:${col};margin:4px 0"><b>${escHtml(p.name)}</b>：路線 +${s.linkVP} ★ | 產業 +${s.industryVP} ★</div>`;
+      }
+      html += '</div>';
+      scoresEl.innerHTML = html;
+    } else {
+      scoresEl.innerHTML = '';
+    }
+
+    ov.style.display = 'flex';
+    setTimeout(() => { ov.style.display = 'none'; }, 4000);
+  }
+
+  let _lastEra = null;
+
   // === 遊戲狀態更新 ===
   socket.on('game-state', (state) => {
     currentGameState = state;
@@ -284,6 +317,13 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('game-view').style.display = 'flex';
 
     const myPid = getStoredSession().playerId || socket.id;
+
+    // 時代轉換偵測
+    if (_lastEra && _lastEra !== state.era && state.scoringAnimation) {
+      showEraTransition(_lastEra, state.era, state.scoringAnimation.scores, state.players, state.turnOrder);
+    }
+    _lastEra = state.era;
+
     ui.updateGameState(state, myPid);
     inputHandler.setGameState(state);
     renderer.render(state);

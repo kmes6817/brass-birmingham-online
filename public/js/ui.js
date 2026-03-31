@@ -24,6 +24,7 @@ class GameUI {
     this.updateIncomeTrack(state, myPlayerId);
     this.updateHand(state);
     this.updateActionButtons(state, myPlayerId);
+    this.updateMerchants(state);
     this.updateLog(state);
     if (state.gameOver && !this._gameOverShown) {
       this._gameOverShown = true;
@@ -40,11 +41,15 @@ class GameUI {
 
     const isMyTurn = state.currentPlayerId === this.myPlayerId;
     const cur = state.players[state.currentPlayerId];
+    const curIdx = cur ? state.turnOrder.indexOf(state.currentPlayerId) : 0;
+    const curColor = PLAYER_COLORS[curIdx] || '#fff';
     const td = document.getElementById('turn-display');
     td.className = isMyTurn ? 'my-turn' : 'waiting';
-    td.textContent = isMyTurn
-      ? `\u2728 你的回合（剩餘 ${state.actionsRemaining} 個行動）`
-      : `\u23F3 ${cur ? cur.name : '?'} 的回合`;
+    if (isMyTurn) {
+      td.innerHTML = `✨ 你的回合（剩餘 <b>${state.actionsRemaining}</b> 個行動）`;
+    } else {
+      td.innerHTML = `⏳ <span style="color:${curColor};font-weight:600">${escHtml(cur ? cur.name : '?')}</span> 的回合`;
+    }
 
     document.getElementById('coal-market').textContent = `${state.coalMarket}/${COAL_MARKET_SIZE}`;
     document.getElementById('iron-market').textContent = `${state.ironMarket}/${IRON_MARKET_SIZE}`;
@@ -458,15 +463,50 @@ class GameUI {
 
   /* ─── 行動按鈕 ─── */
   updateActionButtons(state, myPlayerId) {
-    const ok = state.currentPlayerId === myPlayerId && !state.gameOver;
+    const isMyTurn = state.currentPlayerId === myPlayerId && !state.gameOver;
+    const hasCard = this.selectedCardIndex >= 0;
     document.querySelectorAll('.action-btn').forEach(b => {
-      b.disabled = !ok;
-      b.classList.remove('selected');
+      b.disabled = !isMyTurn;
+      b.classList.remove('selected', 'needs-card');
+      if (isMyTurn && !hasCard) b.classList.add('needs-card');
     });
     if (this.selectedAction) {
       const b = document.querySelector(`[data-action="${this.selectedAction}"]`);
-      if (b) b.classList.add('selected');
+      if (b) { b.classList.add('selected'); b.classList.remove('needs-card'); }
     }
+  }
+
+  /* ─── 商人面板 ─── */
+  updateMerchants(state) {
+    const c = document.getElementById('merchant-content');
+    if (!c || !state.merchants) return;
+    const TYPE_LABELS = { cotton: '棉花', manufacturer: '工廠', pottery: '陶瓷' };
+    const BONUS_LABELS = { vp: 'VP', money: '金錢', free_develop: '免費研發', free_road: '免費建路' };
+    let html = '';
+    for (const m of state.merchants) {
+      if (!m.active) continue;
+      const usedTiles = (m.tiles || []).filter(t => t.used).length;
+      const totalTiles = (m.tiles || []).length;
+      const allUsed = usedTiles >= totalTiles;
+      const accepts = (m.tiles || []).filter(t => !t.used)
+        .map(t => t.accepts.map(a => TYPE_LABELS[a] || a).join('/'))
+        .filter((v, i, arr) => arr.indexOf(v) === i);
+      const bonusDesc = m.bonusType
+        ? `${BONUS_LABELS[m.bonusType] || m.bonusType}${m.bonusAmount ? ' +' + m.bonusAmount : ''}`
+        : '';
+      html += `<div class="merchant-item${allUsed ? ' exhausted' : ''}">
+        <div class="mi-header">
+          <span class="mi-name">${escHtml(m.name)}</span>
+          <span class="mi-slots">${totalTiles - usedTiles}/${totalTiles}</span>
+        </div>
+        <div class="mi-detail">
+          ${m.beer > 0 ? `<span class="mi-beer">🍺×${m.beer}</span>` : ''}
+          ${accepts.length ? `<span class="mi-accepts">${accepts.join('、')}</span>` : ''}
+          ${bonusDesc ? `<span class="mi-bonus">✨${bonusDesc}</span>` : ''}
+        </div>
+      </div>`;
+    }
+    c.innerHTML = html || '<span style="color:var(--text-dim);font-size:.85em">無商人資訊</span>';
   }
 
   /* ─── 遊戲記錄（差量追加）─── */
@@ -475,26 +515,26 @@ class GameUI {
     const existingCount = c.children.length;
     const logEntries = state.log;
 
+    const makeEntry = (e) => {
+      const d = document.createElement('div');
+      d.className = 'log-entry';
+      const msg = e.message;
+      if (msg.startsWith('===')) d.classList.add('highlight');
+      else if (msg.includes('建造') || msg.includes('建路')) d.classList.add('log-build');
+      else if (msg.includes('販賣') || msg.includes('賣到市場')) d.classList.add('log-sell');
+      else if (msg.includes('貸款')) d.classList.add('log-loan');
+      else if (msg.includes('研發')) d.classList.add('log-develop');
+      else if (msg.includes('計分') || msg.includes('VP') || msg.includes('分')) d.classList.add('log-score');
+      else if (msg.includes('收入') || msg.includes('獲得')) d.classList.add('log-income');
+      d.textContent = msg;
+      return d;
+    };
+
     if (existingCount > logEntries.length) {
-      // log 被截斷了（新時代等），全量重建
       c.innerHTML = '';
-      for (const e of logEntries) {
-        const d = document.createElement('div');
-        d.className = 'log-entry';
-        if (e.message.startsWith('===')) d.classList.add('highlight');
-        d.textContent = e.message;
-        c.appendChild(d);
-      }
+      for (const e of logEntries) c.appendChild(makeEntry(e));
     } else {
-      // 只追加新的條目
-      for (let i = existingCount; i < logEntries.length; i++) {
-        const e = logEntries[i];
-        const d = document.createElement('div');
-        d.className = 'log-entry';
-        if (e.message.startsWith('===')) d.classList.add('highlight');
-        d.textContent = e.message;
-        c.appendChild(d);
-      }
+      for (let i = existingCount; i < logEntries.length; i++) c.appendChild(makeEntry(logEntries[i]));
     }
 
     if (existingCount < logEntries.length) {

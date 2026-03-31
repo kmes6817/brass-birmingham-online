@@ -88,7 +88,10 @@ class InputHandler {
       if (!this.ui.actionState.linkFrom) {
         this.ui.actionState.linkFrom = cityId;
         this.renderer.selectedCity = cityId;
-        this.ui.showActionDetail('建路', `起點：${cityId}<br>點擊目的地城市`);
+        const isCanal2 = this.gameState && this.gameState.era === 'canal';
+        const steps2 = isCanal2 ? ['選起點', '選終點', '確認'] : ['選起點', '選終點', '（第2條）', '確認'];
+        const bar2 = this._stepBar(steps2, 1);
+        this.ui.showActionDetail('建路', `${bar2}起點：<b>${cityId}</b><br><span style="color:var(--text-dim)">點擊目的地城市</span>`);
       } else {
         const from = this.ui.actionState.linkFrom;
         this.ui.actionState.links.push({ from, to: cityId });
@@ -99,10 +102,11 @@ class InputHandler {
         if (this.ui.actionState.links.length >= maxLinks) {
           this.updateNetworkDetail();
         } else {
-          // 鐵路時代：已選1條時，可選擇確認或繼續選第2條
+          const steps3 = ['選起點', '選終點', '（第2條）', '確認'];
+          const bar3 = this._stepBar(steps3, 2);
           this.ui.showActionDetail('建路',
-            `已選 ${this.ui.actionState.links.length}/${maxLinks} 條路<br>` +
-            `點擊下一條路的起點，或直接點「確認」只建 1 條`);
+            `${bar3}已選 ${this.ui.actionState.links.length}/${maxLinks} 條路<br>` +
+            `<span style="color:var(--text-dim)">點擊下一條路的起點，或直接點「確認」只建 1 條</span>`);
         }
       }
       if (this.gameState) this.renderer.render(this.gameState);
@@ -176,14 +180,26 @@ class InputHandler {
   }
 
   // ====== 建造 ======
+  _stepBar(steps, current) {
+    return '<div style="display:flex;gap:4px;margin-bottom:8px;font-size:.8em">' +
+      steps.map((s, i) => {
+        const done = i < current;
+        const active = i === current;
+        const color = done ? '#3ba55d' : active ? 'var(--gold)' : 'var(--text-dim)';
+        const prefix = done ? '✓ ' : active ? '▶ ' : '';
+        return `<span style="color:${color};white-space:nowrap">${prefix}${s}</span>` +
+          (i < steps.length - 1 ? '<span style="color:var(--text-dim)"> → </span>' : '');
+      }).join('') + '</div>';
+  }
+
   startBuild() {
     if (this.ui.selectedCardIndex < 0) {
       this.ui.showError('請先選擇一張手牌！');
       this.ui.cancelAction(); return;
     }
     const card = this.gameState.myHand[this.ui.selectedCardIndex];
-    this.ui.showActionDetail('建造',
-      `卡片：${card.name}<br>請點擊地圖上的城市，再點擊格子`);
+    const bar = this._stepBar(['選城市', '選格子', '確認'], 0);
+    this.ui.showActionDetail('建造', `${bar}卡片：${card.name}<br><span style="color:var(--text-dim)">點擊地圖上的城市</span>`);
   }
 
   updateBuildDetail() {
@@ -191,8 +207,11 @@ class InputHandler {
     const cityData = this.gameState.board[state.locationId];
     if (!cityData) return;
 
-    let html = `<b>城市：</b>${cityData.name}<br>`;
-    if (state.slotIndex !== null && state.slotIndex !== undefined) {
+    const hasSlot = state.slotIndex !== null && state.slotIndex !== undefined;
+    const stepIdx = !state.locationId ? 0 : !hasSlot ? 1 : 2;
+    let html = this._stepBar(['選城市', '選格子', '確認'], stepIdx);
+    html += `<b>城市：</b>${cityData.name}<br>`;
+    if (hasSlot) {
       const slot = cityData.slots[state.slotIndex];
       if (slot) {
         html += `<b>格子：</b>${state.slotIndex + 1}（`;
@@ -247,6 +266,8 @@ class InputHandler {
     if (tile.ironCost > 0) html += ` + 鐵\u00D7${tile.ironCost}`;
     html += '<br>';
     html += `<span style="color:var(--text-dim)">收入 +${tile.income} ｜ 分數 ${tile.vp}</span>`;
+    if (tile.coalCost > 0) html += `<br><span style="color:var(--text-dim);font-size:.85em">⬛ 煤：先用最近的煤礦（免費），不足再買市場（需路線連商人）</span>`;
+    if (tile.ironCost > 0) html += `<br><span style="color:var(--text-dim);font-size:.85em">🟠 鐵：先用任何鐵廠（免費），不足再買市場（需市場有鐵）</span>`;
     if (tile.resourceAmount > 0) {
       const resName = industryType === 'coal' ? '煤炭' : industryType === 'iron' ? '鐵' : '啤酒';
       html += `<br><span style="color:var(--text-dim)">產出 ${resName}\u00D7${tile.resourceAmount}</span>`;
@@ -273,9 +294,11 @@ class InputHandler {
     this.ui.actionState.links = [];
     const isCanal = this.gameState.era === 'canal';
     const cost = isCanal ? 3 : 5;
-    let html = `<b>${isCanal ? '運河' : '鐵路'}（${isCanal ? '1條' : '最多2條'}）</b><br>`;
+    const steps = isCanal ? ['選起點', '選終點', '確認'] : ['選起點', '選終點', '（第2條）', '確認'];
+    let html = this._stepBar(steps, 0);
+    html += `<b>${isCanal ? '運河' : '鐵路'}（${isCanal ? '1條' : '最多2條'}）</b><br>`;
     html += `費用：每條 \u00A3${cost}${isCanal ? '' : ' + 煤炭\u00D71'}<br>`;
-    html += '點擊起點城市';
+    html += '<span style="color:var(--text-dim)">點擊起點城市</span>';
     this.ui.showActionDetail('建路', html);
   }
 
@@ -320,8 +343,9 @@ class InputHandler {
         .join('  ');
 
       const lowestTile = tiles[0];
+      const ironCost = this.ui.actionState.developTypes ? this.ui.actionState.developTypes.length + 1 : 1;
       options.push({
-        label: `${d.label}  |  將移除 Lv${lowestTile.level}  |  剩餘：${levelStr}  (共${tiles.length}片)`,
+        label: `${d.label}  |  移除 Lv${lowestTile.level}（消耗 🟠鐵×${ironCost}）  |  剩餘：${levelStr}`,
         value: type
       });
     }
@@ -366,16 +390,25 @@ class InputHandler {
     const sales = this.ui.actionState.sales;
     let html = `<b>已選 ${sales.length} 個建築：</b><br>`;
     let totalBeer = 0;
+    let totalIncome = 0;
     for (const s of sales) {
       const loc = this.gameState.board[s.locationId];
       const slot = loc.slots[s.slotIndex];
       const d = INDUSTRY_DISPLAY[slot.built.type];
       html += `${loc.name} - ${d.label} Lv${slot.built.level}`;
+      html += ` <span style="color:#3ba55d">+${slot.built.income} 收入格</span>`;
       if (slot.built.sellBeer > 0) {
         html += ` <span style="color:#ffd700">(需啤酒\u00D7${slot.built.sellBeer})</span>`;
         totalBeer += slot.built.sellBeer;
       }
+      totalIncome += slot.built.income;
       html += '<br>';
+    }
+    if (sales.length > 0) {
+      const player = this.gameState.players[this.ui.myPlayerId];
+      const curIncome = player ? player.incomeLevel : '?';
+      html += `<div style="margin-top:6px;padding:6px;background:rgba(59,165,93,0.1);border-radius:4px;font-size:.9em">`;
+      html += `收入軌道 <b>+${totalIncome} 格</b>（目前 £${curIncome}/輪）</div>`;
     }
     if (totalBeer > 0) {
       html += `<div style="margin-top:4px;color:var(--text-dim)">總共需要啤酒：${totalBeer}（從網路上的啤酒廠取得）</div>`;
