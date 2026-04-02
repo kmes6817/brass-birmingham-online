@@ -370,8 +370,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // 更新按鈕外觀
     const apBtn = document.getElementById('btn-auto-pass');
     if (apBtn) {
-      apBtn.textContent = window._autoPass ? '⚡ 自動跳過中（點擊停止）' : '⚡ 持續自動跳過';
-      apBtn.style.background = window._autoPass ? 'rgba(233,69,96,0.4)' : 'rgba(233,69,96,0.15)';
+      const ab = apBtn.querySelector('.ab-text');
+      if (ab) ab.textContent = window._autoPass ? '自動跳過中（點擊停止）' : '持續自動跳過';
+      apBtn.classList.toggle('active', !!window._autoPass);
     }
 
     // 檢查是否有待處理的免費研發獎勵
@@ -554,11 +555,25 @@ document.addEventListener('DOMContentLoaded', () => {
     ui.showError(msg);
   });
 
-  // 聊天
+  // ===== 聊天氣泡 =====
+  function addChatBubble(from, message, isMe) {
+    const container = document.getElementById('chat-messages');
+    if (!container) return;
+    const bubble = document.createElement('div');
+    bubble.className = 'chat-bubble ' + (isMe ? 'from-me' : 'from-other');
+    bubble.innerHTML = isMe
+      ? escHtml(message)
+      : `<span class="cb-from">${escHtml(from)}</span>${escHtml(message)}`;
+    container.appendChild(bubble);
+    // 只保留最近 30 則
+    while (container.children.length > 30) container.removeChild(container.firstChild);
+    container.scrollTop = container.scrollHeight;
+  }
+
   socket.on('chat', ({ from, message }) => {
-    if (!currentGameState) return;
-    currentGameState.log.push({ message: `[${from}] ${message}` });
-    ui.updateLog(currentGameState);
+    const myPid = getStoredSession().playerId || socket.id;
+    const myName = getStoredSession().name || '';
+    addChatBubble(from, message, from === myName || from === myPid);
   });
 
   const chatInput = document.getElementById('chat-input');
@@ -568,6 +583,90 @@ document.addEventListener('DOMContentLoaded', () => {
         socket.emit('chat', chatInput.value.trim());
         chatInput.value = '';
       }
+    });
+  }
+
+  // ===== 鍵盤快捷鍵 =====
+  document.addEventListener('keydown', (e) => {
+    // 不在遊戲畫面 / 正在輸入 → 忽略
+    if (document.getElementById('game-view').style.display === 'none') return;
+    const tag = (document.activeElement || {}).tagName || '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+    const actionMap = { b:'build', n:'network', d:'develop', s:'sell', l:'loan', c:'scout', p:'pass' };
+    const key = e.key.toLowerCase();
+
+    if (actionMap[key] && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault();
+      const btn = document.querySelector(`.action-btn[data-action="${actionMap[key]}"]`);
+      if (btn && !btn.disabled) btn.click();
+    } else if (e.key === 'Enter' && !e.shiftKey) {
+      const confirmBtn = document.getElementById('btn-confirm-action');
+      if (confirmBtn && confirmBtn.offsetParent !== null && !confirmBtn.disabled) {
+        e.preventDefault();
+        confirmBtn.click();
+      }
+    } else if (e.key === 'Escape') {
+      // 關閉各種彈窗
+      const rulesPanel = document.getElementById('rules-panel');
+      if (rulesPanel && rulesPanel.style.display !== 'none') {
+        rulesPanel.style.display = 'none'; return;
+      }
+      const selOverlay = document.getElementById('selection-overlay');
+      if (selOverlay && selOverlay.style.display !== 'none') {
+        document.getElementById('btn-close-selection').click(); return;
+      }
+      const cancelBtn = document.getElementById('btn-cancel-action');
+      if (cancelBtn && cancelBtn.offsetParent !== null) {
+        cancelBtn.click();
+      }
+    }
+  });
+
+  // ===== 規則面板 =====
+  const rulesBtn = document.getElementById('btn-rules');
+  const rulesPanel = document.getElementById('rules-panel');
+  const closeRulesBtn = document.getElementById('btn-close-rules');
+  if (rulesBtn && rulesPanel) {
+    rulesBtn.addEventListener('click', () => {
+      rulesPanel.style.display = rulesPanel.style.display === 'none' ? 'flex' : 'none';
+    });
+    if (closeRulesBtn) closeRulesBtn.addEventListener('click', () => { rulesPanel.style.display = 'none'; });
+    // 點背景關閉
+    rulesPanel.addEventListener('click', (e) => { if (e.target === rulesPanel) rulesPanel.style.display = 'none'; });
+  }
+
+  // ===== 行動面板抽屜（平板/手機）=====
+  // 建立背景遮罩
+  const backdrop = document.createElement('div');
+  backdrop.className = 'panel-backdrop';
+  document.getElementById('game-view').appendChild(backdrop);
+
+  function closePanels() {
+    document.getElementById('left-panel').classList.remove('open');
+    document.getElementById('right-panel').classList.remove('open');
+    backdrop.classList.remove('visible');
+  }
+  backdrop.addEventListener('click', closePanels);
+
+  const toggleLeft = document.getElementById('btn-toggle-left');
+  if (toggleLeft) {
+    toggleLeft.addEventListener('click', () => {
+      const lp = document.getElementById('left-panel');
+      const rp = document.getElementById('right-panel');
+      const wasOpen = lp.classList.contains('open');
+      closePanels();
+      if (!wasOpen) { lp.classList.add('open'); backdrop.classList.add('visible'); }
+    });
+  }
+  const toggleRight = document.getElementById('btn-toggle-right');
+  if (toggleRight) {
+    toggleRight.addEventListener('click', () => {
+      const rp = document.getElementById('right-panel');
+      const lp = document.getElementById('left-panel');
+      const wasOpen = rp.classList.contains('open');
+      closePanels();
+      if (!wasOpen) { rp.classList.add('open'); backdrop.classList.add('visible'); }
     });
   }
 

@@ -64,6 +64,12 @@ class GameUI {
     document.getElementById('coal-price').textContent = `\u00A3${cp}`;
     document.getElementById('iron-price').textContent = `\u00A3${ip}`;
 
+    // 更新市場進度條（視覺化剩餘量）
+    const coalBar = document.getElementById('coal-bar');
+    const ironBar = document.getElementById('iron-bar');
+    if (coalBar) coalBar.style.width = Math.max(0, state.coalMarket / COAL_MARKET_SIZE * 100) + '%';
+    if (ironBar) ironBar.style.width = Math.max(0, state.ironMarket / IRON_MARKET_SIZE * 100) + '%';
+
     const deckEl = document.getElementById('deck-count');
     if (deckEl) deckEl.textContent = state.deckCount !== undefined ? state.deckCount : '?';
   }
@@ -552,8 +558,12 @@ class GameUI {
   showInfo(msg) { this._toast(msg, 'info'); }
 
   _toast(msg, type) {
+    // Remove any existing toast with slide-out animation
     const old = document.querySelector('.toast-msg');
-    if (old) old.remove();
+    if (old) {
+      old.classList.add('removing');
+      setTimeout(() => old.remove(), 240);
+    }
     const t = document.createElement('div');
     t.className = `toast-msg ${type}`;
     t.textContent = msg;
@@ -561,6 +571,16 @@ class GameUI {
     t.setAttribute('role', type === 'error' ? 'alert' : 'status');
     t.setAttribute('aria-live', type === 'error' ? 'assertive' : 'polite');
     document.body.appendChild(t);
-    setTimeout(() => t.remove(), 3000);
+    // Click to dismiss
+    t.addEventListener('click', () => {
+      t.classList.add('removing');
+      setTimeout(() => t.remove(), 240);
+    });
+    setTimeout(() => {
+      if (t.parentNode) {
+        t.classList.add('removing');
+        setTimeout(() => t.remove(), 240);
+      }
+    }, 3200);
   }
 }

@@ -5,19 +5,27 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>工業革命：伯明翰 線上版</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Noto+Sans+TC:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css?v=40">
 </head>
 <body>
 
   <!-- ===================== 大廳 ===================== -->
   <div id="lobby-view">
     <div class="lobby-particles" aria-hidden="true"></div>
+    <!-- 背景裝飾齒輪 -->
+    <div class="lobby-gear gear-1" aria-hidden="true">⚙</div>
+    <div class="lobby-gear gear-2" aria-hidden="true">⚙</div>
+    <div class="lobby-gear gear-3" aria-hidden="true">⚙</div>
 
     <div class="lobby-container">
       <div class="lobby-logo">
         <div class="logo-icon">
-          <svg viewBox="0 0 64 64" width="72" height="72"><path d="M32 4L8 18v28l24 14 24-14V18L32 4z" fill="none" stroke="#d4a843" stroke-width="2.5"/><path d="M22 30h4v12h-4zM30 24h4v18h-4zM38 28h4v14h-4z" fill="#d4a843"/><circle cx="32" cy="16" r="3" fill="#e94560"/></svg>
+          <svg viewBox="0 0 64 64" width="80" height="80">
+            <path d="M32 4L8 18v28l24 14 24-14V18L32 4z" fill="none" stroke="#d4a843" stroke-width="2.5"/>
+            <path d="M22 30h4v12h-4zM30 24h4v18h-4zM38 28h4v14h-4z" fill="#d4a843"/>
+            <circle cx="32" cy="16" r="3" fill="#e94560"/>
+          </svg>
         </div>
         <h1>工業革命</h1>
         <h2>伯明翰</h2>
@@ -30,11 +38,11 @@
           <input type="text" id="player-name" placeholder="輸入你的暱稱..." maxlength="20" autocomplete="off">
         </div>
         <div class="lobby-buttons">
-          <button id="btn-create" class="btn-primary"><span class="btn-icon">+</span> 建立房間</button>
-          <button id="btn-join-toggle" class="btn-secondary"><span class="btn-icon">&rarr;</span> 加入房間</button>
+          <button id="btn-create" class="btn-primary"><span class="btn-icon">＋</span> 建立房間</button>
+          <button id="btn-join-toggle" class="btn-secondary"><span class="btn-icon">→</span> 加入房間</button>
         </div>
         <div style="margin-bottom:10px">
-          <button id="btn-preview" class="btn-secondary" style="width:100%;opacity:0.7;font-size:13px" onclick="startPreview()">👁 預覽模式（不需連線）</button>
+          <button id="btn-preview" class="btn-secondary btn-preview-mode" onclick="startPreview()">👁 預覽模式（不需連線）</button>
         </div>
         <div id="join-section" style="display:none">
           <input type="text" id="room-code" placeholder="房間代碼" maxlength="6" autocomplete="off" style="text-transform:uppercase;letter-spacing:4px;text-align:center">
@@ -60,7 +68,7 @@
         </div>
       </div>
 
-      <div id="error-display" class="error"></div>
+      <div id="error-display" class="error" role="alert" aria-live="assertive"></div>
       <div class="lobby-footer">2&ndash;4 人 &middot; 運河時代 &amp; 鐵路時代 &middot; 即時線上對戰</div>
     </div>
   </div>
@@ -70,12 +78,39 @@
 
     <!-- 頂部資訊列 -->
     <div id="top-bar">
+      <!-- 手機：左側面板開關 -->
+      <button class="panel-toggle-btn" id="btn-toggle-left" aria-label="開關左側面板" title="玩家資訊">
+        <span>☰</span>
+      </button>
+
       <div id="era-badge"><span id="era-icon"></span><span id="era-text">運河時代</span></div>
+
       <div id="turn-display">等待中...</div>
+
       <div id="market-display">
-        <div class="market-chip coal"><span class="market-label">煤炭</span><span id="coal-market">13</span><span class="market-price" id="coal-price">&pound;1</span></div>
-        <div class="market-chip iron"><span class="market-label">鐵</span><span id="iron-market">6</span><span class="market-price" id="iron-price">&pound;2</span></div>
-        <div id="deck-display" class="market-chip deck"><span class="market-label">牌庫</span><span id="deck-count">0</span></div>
+        <div class="market-chip coal" title="煤炭市場">
+          <span class="market-label">⬛ 煤</span>
+          <span id="coal-market" class="market-num">13</span>
+          <div class="market-bar-wrap"><div class="market-bar coal-bar" id="coal-bar"></div></div>
+          <span class="market-price" id="coal-price">&pound;1</span>
+        </div>
+        <div class="market-chip iron" title="鐵礦市場">
+          <span class="market-label">🟠 鐵</span>
+          <span id="iron-market" class="market-num">6</span>
+          <div class="market-bar-wrap"><div class="market-bar iron-bar" id="iron-bar"></div></div>
+          <span class="market-price" id="iron-price">&pound;2</span>
+        </div>
+        <div id="deck-display" class="market-chip deck" title="剩餘牌數">
+          <span class="market-label">🂠 牌庫</span><span id="deck-count">0</span>
+        </div>
+      </div>
+
+      <!-- 規則按鈕 + 手機右側面板開關 -->
+      <div class="top-bar-actions">
+        <button class="icon-btn" id="btn-rules" aria-label="遊戲規則快速參考" title="規則 (?)">?</button>
+        <button class="panel-toggle-btn" id="btn-toggle-right" aria-label="開關右側面板" title="行動/記錄">
+          <span>☰</span>
+        </button>
       </div>
     </div>
 
@@ -86,7 +121,9 @@
       <div id="left-panel">
         <div id="player-panels"></div>
         <div id="my-tiles-panel">
-          <h3 class="panel-title">我的產業板塊</h3>
+          <h3 class="panel-title">
+            <span>我的產業板塊</span>
+          </h3>
           <div id="my-tiles-content"></div>
         </div>
         <div id="income-track-panel">
@@ -104,21 +141,54 @@
         <canvas id="board-canvas" width="1000" height="1000"></canvas>
       </div>
 
-      <!-- 右側：行動 + 記錄 -->
+      <!-- 右側：行動 + 記錄 + 聊天 -->
       <div id="right-panel">
         <div id="action-panel">
-          <h3 class="panel-title">行動選擇</h3>
+          <h3 class="panel-title">
+            行動選擇
+            <span class="shortcut-hint" title="鍵盤快捷鍵">⌨</span>
+          </h3>
           <div id="action-buttons">
-            <button class="action-btn" data-action="build" aria-label="建造產業板塊"><span class="ab-icon">&#9878;</span>建造</button>
-            <button class="action-btn" data-action="network" aria-label="建造運河或鐵路連線"><span class="ab-icon">&#8644;</span>建路</button>
-            <button class="action-btn" data-action="develop" aria-label="研發，升級產業等級"><span class="ab-icon">&#9650;</span>研發</button>
-            <button class="action-btn" data-action="sell" aria-label="販賣棉花、製造品或陶器"><span class="ab-icon">&#163;</span>販賣</button>
-            <button class="action-btn" data-action="loan" aria-label="貸款取得資金"><span class="ab-icon">&#9878;</span>貸款</button>
-            <button class="action-btn" data-action="scout" aria-label="偵查，獲得萬用牌"><span class="ab-icon">&#9788;</span>偵查</button>
-            <button class="action-btn pass" data-action="pass" aria-label="跳過本次行動並棄牌"><span class="ab-icon">&#10145;</span>跳過</button>
+            <button class="action-btn" data-action="build" aria-label="建造產業板塊">
+              <span class="ab-icon">🏭</span>
+              <span class="ab-text">建造</span>
+              <span class="ab-key">B</span>
+            </button>
+            <button class="action-btn" data-action="network" aria-label="建造運河或鐵路連線">
+              <span class="ab-icon">🛤</span>
+              <span class="ab-text">建路</span>
+              <span class="ab-key">N</span>
+            </button>
+            <button class="action-btn" data-action="develop" aria-label="研發，升級產業等級">
+              <span class="ab-icon">⬆</span>
+              <span class="ab-text">研發</span>
+              <span class="ab-key">D</span>
+            </button>
+            <button class="action-btn" data-action="sell" aria-label="販賣棉花、製造品或陶器">
+              <span class="ab-icon">💰</span>
+              <span class="ab-text">販賣</span>
+              <span class="ab-key">S</span>
+            </button>
+            <button class="action-btn" data-action="loan" aria-label="貸款取得資金">
+              <span class="ab-icon">🏦</span>
+              <span class="ab-text">貸款</span>
+              <span class="ab-key">L</span>
+            </button>
+            <button class="action-btn" data-action="scout" aria-label="偵查，獲得萬用牌">
+              <span class="ab-icon">🔭</span>
+              <span class="ab-text">偵查</span>
+              <span class="ab-key">C</span>
+            </button>
+            <button class="action-btn pass" data-action="pass" aria-label="跳過本次行動並棄牌">
+              <span class="ab-icon">⏭</span>
+              <span class="ab-text">跳過</span>
+              <span class="ab-key">P</span>
+            </button>
           </div>
-          <button id="btn-auto-pass" class="action-btn" aria-label="持續自動跳過：輪到自己時自動棄牌跳過" style="margin-top:8px;background:rgba(233,69,96,0.15);border-color:rgba(233,69,96,0.3);color:#f88;width:100%">
-            <span class="ab-icon">&#9889;</span>持續自動跳過
+          <button id="btn-auto-pass" class="action-btn auto-pass-btn"
+                  aria-label="持續自動跳過：輪到自己時自動棄牌跳過">
+            <span class="ab-icon">⚡</span>
+            <span class="ab-text">持續自動跳過</span>
           </button>
         </div>
 
@@ -126,8 +196,8 @@
           <h4 id="action-detail-title"></h4>
           <div id="action-detail-content"></div>
           <div class="action-detail-buttons">
-            <button id="btn-confirm-action" class="btn-confirm">確認</button>
-            <button id="btn-cancel-action" class="btn-cancel">取消</button>
+            <button id="btn-confirm-action" class="btn-confirm">✓ 確認 <span class="key-badge">Enter</span></button>
+            <button id="btn-cancel-action" class="btn-cancel">✕ 取消 <span class="key-badge">Esc</span></button>
           </div>
         </div>
 
@@ -137,7 +207,10 @@
         </div>
 
         <div id="chat-area">
-          <input type="text" id="chat-input" placeholder="輸入聊天訊息..." maxlength="120" autocomplete="off">
+          <div id="chat-messages" aria-live="polite" aria-label="聊天訊息"></div>
+          <div class="chat-input-row">
+            <input type="text" id="chat-input" placeholder="輸入訊息... (Enter 送出)" maxlength="120" autocomplete="off">
+          </div>
         </div>
       </div>
     </div>
@@ -145,18 +218,78 @@
     <!-- 底部：手牌 -->
     <div id="hand-area">
       <div id="hand-header">
-        <span class="hand-label">你的手牌</span>
+        <span class="hand-label">🃏 你的手牌</span>
         <span id="hand-count" class="hand-badge">0</span>
+        <span class="hand-hint">點擊選牌 · Hover 高亮城市</span>
       </div>
       <div id="hand-cards"></div>
     </div>
 
     <!-- 選擇彈窗 -->
-    <div id="selection-overlay" style="display:none">
+    <div id="selection-overlay" style="display:none" role="dialog" aria-modal="true">
       <div id="selection-content">
         <h3 id="selection-title"></h3>
         <div id="selection-options"></div>
-        <button id="btn-close-selection" class="btn-cancel">取消</button>
+        <button id="btn-close-selection" class="btn-cancel">✕ 取消</button>
+      </div>
+    </div>
+
+    <!-- 規則快速參考面板 -->
+    <div id="rules-panel" style="display:none" role="dialog" aria-modal="true" aria-label="遊戲規則">
+      <div id="rules-content">
+        <div class="rules-header">
+          <h3>📖 遊戲規則快速參考</h3>
+          <button id="btn-close-rules" class="icon-btn" aria-label="關閉規則">✕</button>
+        </div>
+        <div class="rules-body">
+          <div class="rules-section">
+            <h4>🎮 基本流程</h4>
+            <p>每位玩家每回合有 <b>2 個行動</b>（第一輪各1個）。行動後棄掉對應的牌。</p>
+          </div>
+          <div class="rules-section">
+            <h4>🏭 建造</h4>
+            <p>打出城市牌 → 在該城市建；打出產業牌 → 在網路上任何地方建。消耗煤/鐵資源。</p>
+          </div>
+          <div class="rules-section">
+            <h4>🛤 建路</h4>
+            <p>運河時代：每條路消耗 <b>£3</b> + 棄1張牌。鐵路時代：每條路 <b>£5</b> + 1煤 + 棄1張牌。</p>
+          </div>
+          <div class="rules-section">
+            <h4>⬆ 研發</h4>
+            <p>花費 <b>£1</b> + 鐵×1～2，移除最低等級的產業板塊（升級到下一級）。</p>
+          </div>
+          <div class="rules-section">
+            <h4>💰 販賣</h4>
+            <p>連接到商人 → 翻轉相連的棉花/陶器板塊，取得 VP 和收入。需要商人有啤酒。</p>
+          </div>
+          <div class="rules-section">
+            <h4>🏦 貸款</h4>
+            <p>取得 <b>£30</b>，收入軌道降低 3 格。</p>
+          </div>
+          <div class="rules-section">
+            <h4>🔭 偵查</h4>
+            <p>棄3張牌，取得2張萬用牌（地點萬用 + 產業萬用）。</p>
+          </div>
+          <div class="rules-section">
+            <h4>📊 計分時機</h4>
+            <p><b>運河結束：</b>所有連結VP + 所有已翻轉建築VP。清除所有板塊。<br>
+               <b>鐵路結束：</b>同上，加上連結VP × 兩側翻轉建築。</p>
+          </div>
+          <div class="rules-section">
+            <h4>⌨ 鍵盤快捷鍵</h4>
+            <div class="shortcut-grid">
+              <span class="key-badge">B</span> 建造
+              <span class="key-badge">N</span> 建路
+              <span class="key-badge">D</span> 研發
+              <span class="key-badge">S</span> 販賣
+              <span class="key-badge">L</span> 貸款
+              <span class="key-badge">C</span> 偵查
+              <span class="key-badge">P</span> 跳過
+              <span class="key-badge">Enter</span> 確認
+              <span class="key-badge">Esc</span> 取消
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -173,20 +306,20 @@
   <!-- ===================== 遊戲結束 ===================== -->
   <div id="game-over-overlay" style="display:none">
     <div id="game-over-content">
-      <div class="go-trophy">&#127942;</div>
+      <div class="go-trophy">🏆</div>
       <h2>遊戲結束</h2>
       <div id="final-scores"></div>
-      <button id="btn-back-lobby" class="btn-primary">返回大廳</button>
+      <button id="btn-back-lobby" class="btn-primary">↩ 返回大廳</button>
     </div>
   </div>
 
   <script src="/socket.io/socket.io.js" defer></script>
-  <script src="/js/boardData.js?v=39" defer></script>
-  <script src="/js/routeData.js?v=39" defer></script>
-  <script src="/js/renderer.js?v=39" defer></script>
-  <script src="/js/ui.js?v=39" defer></script>
-  <script src="/js/input.js?v=39" defer></script>
-  <script src="/js/lobby.js?v=39" defer></script>
-  <script src="/js/main.js?v=39" defer></script>
+  <script src="/js/boardData.js?v=40" defer></script>
+  <script src="/js/routeData.js?v=40" defer></script>
+  <script src="/js/renderer.js?v=40" defer></script>
+  <script src="/js/ui.js?v=40" defer></script>
+  <script src="/js/input.js?v=40" defer></script>
+  <script src="/js/lobby.js?v=40" defer></script>
+  <script src="/js/main.js?v=40" defer></script>
 </body>
 </html>
