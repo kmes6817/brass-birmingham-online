@@ -89,12 +89,13 @@ class GameManager {
 
   generateRoomId() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let id = '';
-    for (let i = 0; i < 6; i++) {
-      id += chars[Math.floor(Math.random() * chars.length)];
-    }
-    // Ensure unique
-    if (this.rooms.has(id)) return this.generateRoomId();
+    let id;
+    do {
+      id = '';
+      for (let i = 0; i < 6; i++) {
+        id += chars[Math.floor(Math.random() * chars.length)];
+      }
+    } while (this.rooms.has(id));
     return id;
   }
 

@@ -360,16 +360,25 @@ class InputHandler {
 
     this.ui.showSelection(title, options, (val) => {
       if (val === '__done__') {
+        try { sessionStorage.removeItem('brass_pendingDevelop'); } catch {}
         this.confirmAction();
         return;
       }
       this.ui.actionState.developTypes.push(val);
 
       if (isFirst) {
+        // 第一步完成：儲存至 sessionStorage，以防刷新後遺失選擇
+        try {
+          sessionStorage.setItem('brass_pendingDevelop', JSON.stringify({
+            developTypes: this.ui.actionState.developTypes,
+            cardIndex: this.ui.selectedCardIndex
+          }));
+        } catch {}
         // 問要不要研發第二個
         this._showDevelopSelection(player,
           '要再研發第 2 個嗎？（再消耗鐵\u00D71，或選「完成」只研發 1 個）', false);
       } else {
+        try { sessionStorage.removeItem('brass_pendingDevelop'); } catch {}
         this.confirmAction();
       }
     });

@@ -163,11 +163,11 @@ const locations = {
   },
 
   // === 商人位置（不能建產業，只用於路線連接和販賣）===
-  'merchant-shrewsbury': { name: 'Shrewsbury Market', isMerchant: true, slots: [] },
-  'merchant-gloucester': { name: 'Gloucester', isMerchant: true, slots: [] },
-  'merchant-oxford': { name: 'Oxford', isMerchant: true, slots: [] },
-  'merchant-warrington': { name: 'Warrington', isMerchant: true, slots: [] },
-  'merchant-nottingham': { name: 'Nottingham', isMerchant: true, slots: [] },
+  'merchant-shrewsbury': { name: 'Shrewsbury Market', isMerchant: true },
+  'merchant-gloucester': { name: 'Gloucester', isMerchant: true },
+  'merchant-oxford': { name: 'Oxford', isMerchant: true },
+  'merchant-warrington': { name: 'Warrington', isMerchant: true },
+  'merchant-nottingham': { name: 'Nottingham', isMerchant: true },
 
   // === 農莊啤酒廠（Farm Brewery）===
   // 只能用啤酒產業牌或萬能產業牌建造，只有啤酒廠槽位

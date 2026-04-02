@@ -343,6 +343,15 @@ server.listen(PORT, async () => {
     console.log('  ============================================');
   }
 
-  process.on('uncaughtException', (err) => { console.error('  [error]', err.message); });
-  process.on('unhandledRejection', (err) => { console.error('  [error]', err); });
+  // Graceful shutdown：記錄錯誤後由 process manager（PM2 等）負責重啟
+  process.on('uncaughtException', (err) => {
+    console.error('  [fatal] uncaughtException:', err);
+    server.close(() => process.exit(1));
+    setTimeout(() => process.exit(1), 3000).unref(); // 3 秒後強制退出
+  });
+  process.on('unhandledRejection', (reason) => {
+    console.error('  [fatal] unhandledRejection:', reason);
+    server.close(() => process.exit(1));
+    setTimeout(() => process.exit(1), 3000).unref();
+  });
 });

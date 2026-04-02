@@ -240,7 +240,8 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
 
-  // === 嘗試重連 ===
+  // === 嘗試重連（含 30 秒 timeout）===
+  let _reconnectTimeout = null;
   const session = getStoredSession();
   if (session.playerId && session.roomId && session.token) {
     console.log('嘗試重連:', session.playerId, session.roomId);
@@ -249,10 +250,17 @@ document.addEventListener('DOMContentLoaded', () => {
       roomId: session.roomId,
       token: session.token
     });
+    _reconnectTimeout = setTimeout(() => {
+      _reconnectTimeout = null;
+      console.log('重連逾時，顯示大廳');
+      clearSession();
+      ui.showInfo('重連逾時，請重新加入房間');
+    }, 30000);
   }
 
   // 重連成功
   socket.on('reconnect-success', ({ playerId, roomId, name, token }) => {
+    if (_reconnectTimeout) { clearTimeout(_reconnectTimeout); _reconnectTimeout = null; }
     console.log('重連成功:', name);
     saveSession(playerId, roomId, name, token);
     ui.showInfo('重新連線成功！');
@@ -260,6 +268,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 重連失敗 → 顯示大廳
   socket.on('reconnect-failed', () => {
+    if (_reconnectTimeout) { clearTimeout(_reconnectTimeout); _reconnectTimeout = null; }
     console.log('重連失敗，顯示大廳');
     clearSession();
   });
@@ -363,6 +372,31 @@ document.addEventListener('DOMContentLoaded', () => {
     // 檢查是否有待處理的免費研發獎勵
     if (state.pendingBonus && state.pendingBonus.type === 'free-develop') {
       showFreeDevelopPopup(state, myPid);
+    }
+
+    // 恢復研發動作中途的狀態（防止刷新後遺失第一步選擇）
+    if (isMyTurn && !ui.selectedAction) {
+      try {
+        const savedDevelop = sessionStorage.getItem('brass_pendingDevelop');
+        if (savedDevelop) {
+          const { developTypes, cardIndex } = JSON.parse(savedDevelop);
+          if (developTypes && developTypes.length > 0 && state.myHand && state.myHand[cardIndex]) {
+            ui.selectedAction = 'develop';
+            ui.selectedCardIndex = cardIndex;
+            ui.actionState = { developTypes };
+            const player = state.players[myPid];
+            if (player) {
+              inputHandler._showDevelopSelection(
+                player,
+                '要再研發第 2 個嗎？（再消耗鐵×1，或選「完成」只研發 1 個）',
+                false
+              );
+            }
+          } else {
+            sessionStorage.removeItem('brass_pendingDevelop');
+          }
+        }
+      } catch { sessionStorage.removeItem('brass_pendingDevelop'); }
     }
   });
 
@@ -540,6 +574,11 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('login-section').style.display = 'block';
     document.getElementById('room-section').style.display = 'none';
     clearSession();
+    // 釋放 AudioContext 資源
+    if (_sharedAudioCtx && _sharedAudioCtx.state !== 'closed') {
+      _sharedAudioCtx.close().catch(() => {});
+      _sharedAudioCtx = null;
+    }
   });
 
   // Resize

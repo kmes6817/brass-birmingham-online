@@ -481,6 +481,16 @@ function executeSell(gameState, playerId, params) {
     saleKeys.add(key);
   }
 
+  // 快取每個 (locationId, type) 的可達商人，避免同一個 sell 動作中重複 BFS
+  const reachableCache = new Map();
+  function getCachedReachable(locationId, type) {
+    const key = `${locationId}:${type}`;
+    if (!reachableCache.has(key)) {
+      reachableCache.set(key, findReachableMerchants(gameState, locationId, type));
+    }
+    return reachableCache.get(key);
+  }
+
   // Validate all sales first
   for (const sale of sales) {
     const loc = gameState.board[sale.locationId];
@@ -497,7 +507,7 @@ function executeSell(gameState, playerId, params) {
     }
 
     // 檢查是否能連接到接受此產業的商人
-    const reachable = findReachableMerchants(gameState, sale.locationId, type);
+    const reachable = getCachedReachable(sale.locationId, type);
     if (reachable.length === 0) {
       return { success: false, reason: `${loc.name} 的 ${type} 無法連接到任何接受此商品的商人！需要透過路線連接到外部市場。` };
     }
@@ -511,7 +521,7 @@ function executeSell(gameState, playerId, params) {
     const loc = gameState.board[sale.locationId];
     const slot = loc.slots[sale.slotIndex];
     const type = slot.built.type;
-    const reachable = findReachableMerchants(gameState, sale.locationId, type);
+    const reachable = getCachedReachable(sale.locationId, type);
     // 找有空餘格（扣掉本輪已預訂）的商人，優先選有啤酒的
     const available = reachable.filter(m => {
       const alreadyUsed = merchantUsedCount[m.id] || 0;
@@ -636,7 +646,7 @@ function executeLoan(gameState, playerId, params) {
 
   // 借貸：收入降 3（不是等級降 3），clamp 到最低 -10
   const oldIncome = getIncomeLevel(player.trackPos);
-  const newPos = loanDecreasePosition(player.trackPos);
+  const newPos = Math.max(0, loanDecreasePosition(player.trackPos));
   const newIncome = getIncomeLevel(newPos);
 
   player.money += LOAN_AMOUNT;

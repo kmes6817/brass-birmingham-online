@@ -6,6 +6,7 @@ const { ERAS, STARTING_MONEY, STARTING_TRACK_POS, INCOME_TRACK, getIncomeLevel, 
 const { createDeck, dealCards } = require('./cards');
 const { scoreCanalEra, scoreRailEra, calculateTurnOrder } = require('./scoring');
 const { executeBuild, executeNetwork, executeDevelop, executeSell, executeLoan, executeScout } = require('./actions');
+const { getPlayerNetwork } = require('./market');
 
 class BrassGame {
   constructor(playerInfos) {
@@ -23,7 +24,7 @@ class BrassGame {
     for (const [id, loc] of Object.entries(locations)) {
       this.board[id] = {
         name: loc.name,
-        slots: loc.slots.map(s => ({ ...s, built: null }))
+        slots: (loc.slots || []).map(s => ({ ...s, built: null }))
       };
     }
 
@@ -69,7 +70,7 @@ class BrassGame {
     this.currentPlayerIndex = 0;
 
     // 設置商人（隨機板塊 + 每個商人旁邊 1 桶啤酒）
-    this.merchants = JSON.parse(JSON.stringify(merchants));
+    this.merchants = structuredClone(merchants);
     this.setupMerchants();
 
     this.addLog(`遊戲開始！共 ${this.playerCount} 位玩家`);
@@ -363,12 +364,14 @@ class BrassGame {
 
     // Move to next player (跳過手牌為空的玩家)
     this.currentPlayerIndex++;
-    while (this.currentPlayerIndex < this.turnOrder.length) {
+    let skipCount = 0;
+    while (this.currentPlayerIndex < this.turnOrder.length && skipCount < this.turnOrder.length) {
       const nextPlayer = this.getCurrentPlayer();
       if (nextPlayer.hand.length === 0 && this.deck.length === 0) {
         // 手牌空了且沒牌可抽，自動跳過
         this.addLog(`${nextPlayer.name} 無手牌，自動跳過`);
         this.currentPlayerIndex++;
+        skipCount++;
       } else {
         break;
       }
@@ -433,11 +436,13 @@ class BrassGame {
     this.firstTurn = false;
 
     // 跳過手牌為空的玩家
-    while (this.currentPlayerIndex < this.turnOrder.length) {
+    let roundSkipCount = 0;
+    while (this.currentPlayerIndex < this.turnOrder.length && roundSkipCount < this.turnOrder.length) {
       const p = this.getCurrentPlayer();
       if (p.hand.length === 0 && this.deck.length === 0) {
         this.addLog(`${p.name} 無手牌，自動跳過`);
         this.currentPlayerIndex++;
+        roundSkipCount++;
       } else {
         break;
       }
@@ -566,10 +571,23 @@ class BrassGame {
   // Get sanitized state for a specific player (hide other hands)
   getStateForPlayer(playerId, sharedState) {
     const base = sharedState || this.getSharedState();
+    // 計算玩家連通網路（供前端直接使用，避免前後端重複實作 BFS）
+    const gameState = {
+      board: this.board,
+      links: this.links,
+      players: this.players,
+      coalMarket: this.coalMarket,
+      ironMarket: this.ironMarket,
+      era: this.era,
+      merchants: this.merchants,
+      turnOrder: this.turnOrder
+    };
+    const network = getPlayerNetwork(gameState, playerId);
     return {
       ...base,
       pendingBonus: (this.pendingBonus && this.pendingBonus[playerId]) || null,
-      myHand: this.players[playerId] ? this.players[playerId].hand : []
+      myHand: this.players[playerId] ? this.players[playerId].hand : [],
+      myNetwork: Array.from(network)
     };
   }
 }

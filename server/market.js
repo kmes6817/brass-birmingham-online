@@ -11,12 +11,14 @@ const { COAL_MARKET_PRICES, COAL_MARKET_SIZE, IRON_MARKET_PRICES, IRON_MARKET_SI
 // 購買價格（從市場買走最便宜的那個）
 function getCoalPrice(supply) {
   if (supply <= 0) return COAL_MARKET_PRICES[COAL_MARKET_SIZE - 1]; // 空了=最高價£8
-  return COAL_MARKET_PRICES[COAL_MARKET_SIZE - supply]; // 最便宜的已填格
+  const idx = Math.max(0, COAL_MARKET_SIZE - supply); // 防止 supply > SIZE 時索引為負
+  return COAL_MARKET_PRICES[idx];
 }
 
 function getIronPrice(supply) {
   if (supply <= 0) return IRON_MARKET_PRICES[IRON_MARKET_SIZE - 1]; // 空了=最高價£6
-  return IRON_MARKET_PRICES[IRON_MARKET_SIZE - supply];
+  const idx = Math.max(0, IRON_MARKET_SIZE - supply); // 防止 supply > SIZE 時索引為負
+  return IRON_MARKET_PRICES[idx];
 }
 
 // 賣到市場的價格（方塊回到市場時，填入最貴的空格）
@@ -164,13 +166,19 @@ function consumeCoal(gameState, location, amount, playerId) {
 
   // Then buy from market（需要連到商人圖標才能從市場買煤）
   if (remaining > 0) {
-    // 檢查是否連到任何商人位置
+    // 檢查是否連到任何「已啟用」的商人位置
     let connectedToMerchant = false;
     for (const key of Object.keys(distances)) {
-      if (key.startsWith('merchant-')) { connectedToMerchant = true; break; }
+      if (key.startsWith('merchant-')) {
+        const m = gameState.merchants && gameState.merchants.find(m => m.id === key);
+        if (!m || m.active !== false) { connectedToMerchant = true; break; }
+      }
     }
     // 起始位置也檢查（沒路線時只有自己）
-    if (!connectedToMerchant && location.startsWith('merchant-')) connectedToMerchant = true;
+    if (!connectedToMerchant && location.startsWith('merchant-')) {
+      const m = gameState.merchants && gameState.merchants.find(m => m.id === location);
+      if (!m || m.active !== false) connectedToMerchant = true;
+    }
 
     if (!connectedToMerchant) {
       return { success: false, reason: '無法從市場購買煤炭：需要透過路線連接到商人圖標' };

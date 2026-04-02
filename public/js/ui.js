@@ -328,11 +328,10 @@ class GameUI {
       if (hasImg && imgPath) {
         // 有圖片時用圖片背景
         if (window._cardImgCache[imgPath] === undefined) {
-          // 第一次：檢查圖片是否存在
+          // 第一次：非同步確認圖片是否存在，載入後用最新狀態重繪
           const testImg = new Image();
           const self = this;
-          const cachedState = state;
-          testImg.onload = () => { window._cardImgCache[imgPath] = true; self.updateHand(cachedState); };
+          testImg.onload = () => { window._cardImgCache[imgPath] = true; if (self.gameState) self.updateHand(self.gameState); };
           testImg.onerror = () => { window._cardImgCache[imgPath] = false; };
           testImg.src = imgPath;
         }
@@ -369,59 +368,10 @@ class GameUI {
           r.highlightedCities = [card.location];
         } else if (card.type === 'industry' && card.industry) {
           // 產業牌：需要在自己網路上 + 有空的對應格
-          const myPid = this.myPlayerId;
-          const myNetwork = new Set();
-          if (state && state.board && myPid) {
-            // 沒有建築和路線時可以蓋任何地方
-            let hasBuildings = false;
-            for (const [cid, loc] of Object.entries(state.board)) {
-              for (const slot of loc.slots) {
-                if (slot.built && slot.built.owner === myPid) {
-                  hasBuildings = true; break;
-                }
-              }
-              if (hasBuildings) break;
-            }
-            // 也檢查是否有路線
-            if (!hasBuildings && state.links) {
-              hasBuildings = state.links.some(l => l.owner === myPid);
-            }
-            // BFS 找網路
-            // 起點 = 有你建築的城市 + 你路線相鄰的城市
-            if (hasBuildings) {
-              // 1. 有你建築的城市
-              for (const [cid, loc] of Object.entries(state.board)) {
-                for (const slot of loc.slots) {
-                  if (slot.built && slot.built.owner === myPid) {
-                    myNetwork.add(cid);
-                  }
-                }
-              }
-              // 2. 你的路線相鄰的城市
-              if (state.links) {
-                for (const link of state.links) {
-                  if (link.owner === myPid) {
-                    myNetwork.add(link.from);
-                    myNetwork.add(link.to);
-                  }
-                }
-              }
-              // 3. 透過所有人的路線 BFS 擴展
-              if (state.links) {
-                let changed = true;
-                while (changed) {
-                  changed = false;
-                  for (const link of state.links) {
-                    if (myNetwork.has(link.from) && !myNetwork.has(link.to)) {
-                      myNetwork.add(link.to); changed = true;
-                    }
-                    if (myNetwork.has(link.to) && !myNetwork.has(link.from)) {
-                      myNetwork.add(link.from); changed = true;
-                    }
-                  }
-                }
-              }
-            }
+          // 使用 server 已計算好的 myNetwork，避免前後端重複實作 BFS
+          if (state && state.board) {
+            const myNetwork = new Set(state.myNetwork || []);
+            const hasPresence = myNetwork.size > 0;
 
             for (const [cid, loc] of Object.entries(state.board)) {
               let hasMatchingSlot = false;
@@ -431,7 +381,7 @@ class GameUI {
                 }
               }
               if (hasMatchingSlot) {
-                if (!hasBuildings || myNetwork.has(cid)) {
+                if (!hasPresence || myNetwork.has(cid)) {
                   r.highlightedCities.push(cid);  // 綠色：可以蓋
                 } else {
                   r.dimHighlightedCities.push(cid); // 暗色：有格但不在網路上
