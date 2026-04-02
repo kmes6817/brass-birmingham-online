@@ -26,9 +26,14 @@ class GameUI {
     this.updateActionButtons(state, myPlayerId);
     this.updateMerchants(state);
     this.updateLog(state);
-    if (state.gameOver && !this._gameOverShown) {
-      this._gameOverShown = true;
-      this.showGameOver(state);
+    if (state.gameOver) {
+      if (!this._gameOverShown) {
+        this._gameOverShown = true;
+        this.showGameOver(state);
+      }
+    } else {
+      // 遊戲重新開始（例如房間複用）時重置旗標
+      this._gameOverShown = false;
     }
   }
 
@@ -552,6 +557,9 @@ class GameUI {
     const t = document.createElement('div');
     t.className = `toast-msg ${type}`;
     t.textContent = msg;
+    // a11y: errors are assertive (interrupts SR), info is polite
+    t.setAttribute('role', type === 'error' ? 'alert' : 'status');
+    t.setAttribute('aria-live', type === 'error' ? 'assertive' : 'polite');
     document.body.appendChild(t);
     setTimeout(() => t.remove(), 3000);
   }

@@ -71,10 +71,13 @@ function scoreCanalEra(gameState) {
   // Remove all canal-era links
   gameState.links = gameState.links.filter(l => l.type !== 'canal');
 
-  // Remove all level-1 industry tiles from board
+  // Remove ALL industry tiles from board (canal era ends, board resets)
+  // Players may have developed and built level-2+ tiles during canal era,
+  // which must also be cleared — only level-1 tiles have era:'canal' but
+  // any tile built during canal era is removed regardless of level.
   for (const [locId, loc] of Object.entries(gameState.board)) {
     for (const slot of loc.slots) {
-      if (slot.built && slot.built.level === 1) {
+      if (slot.built) {
         slot.built = null;
       }
     }

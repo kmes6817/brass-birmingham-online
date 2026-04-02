@@ -31,12 +31,15 @@ class BoardRenderer {
     // requestAnimationFrame 節流
     this._renderQueued = false;
 
-    // Load board image
+    // Load board image → cache to offscreen canvas so we blit a pre-rendered
+    // bitmap each frame instead of re-scaling the source image every time.
     this.boardImage = new Image();
     this.boardImage.src = BOARD_IMAGE_SRC;
     this.boardImageLoaded = false;
+    this._boardOffscreen = null; // OffscreenCanvas / HTMLCanvasElement cache
     this.boardImage.onload = () => {
       this.boardImageLoaded = true;
+      this._buildBoardCache();
       if (this.gameState) this.render(this.gameState);
     };
   }
@@ -154,6 +157,24 @@ class BoardRenderer {
     });
   }
 
+  // 建立靜態棋盤的 offscreen 快取（加上半透明遮罩）
+  _buildBoardCache() {
+    const W = this.canvas.width;
+    const H = this.canvas.height;
+    let oc;
+    try {
+      oc = new OffscreenCanvas(W, H);
+    } catch (_) {
+      oc = document.createElement('canvas');
+      oc.width = W; oc.height = H;
+    }
+    const octx = oc.getContext('2d');
+    octx.drawImage(this.boardImage, 0, 0, W, H);
+    octx.fillStyle = 'rgba(0,0,0,0.15)';
+    octx.fillRect(0, 0, W, H);
+    this._boardOffscreen = oc;
+  }
+
   // 將螢幕座標轉換為地圖座標（考慮縮放和平移）
   screenToMap(sx, sy) {
     return {
@@ -190,8 +211,11 @@ class BoardRenderer {
     ctx.translate(this.panX, this.panY);
     ctx.scale(this.zoom, this.zoom);
 
-    // ── board image background ──
-    if (this.boardImageLoaded) {
+    // ── board image background (blit from offscreen cache) ──
+    if (this._boardOffscreen) {
+      ctx.drawImage(this._boardOffscreen, 0, 0);
+    } else if (this.boardImageLoaded) {
+      // cache not ready yet — draw directly this frame
       ctx.drawImage(this.boardImage, 0, 0, W, H);
       ctx.fillStyle = 'rgba(0,0,0,0.15)';
       ctx.fillRect(0, 0, W, H);
@@ -245,15 +269,20 @@ class BoardRenderer {
 
   /* ========================== unbuilt connections ========================== */
   drawConnections(ctx, gs) {
+    // Pre-build a Set of built link keys to avoid O(n×m) .find() inside the loop
+    const builtLinkKeys = new Set();
+    if (gs && gs.links) {
+      for (const l of gs.links) {
+        builtLinkKeys.add(l.from + '|' + l.to);
+        builtLinkKeys.add(l.to + '|' + l.from);
+      }
+    }
     for (const conn of BOARD_CONNECTIONS) {
       const a = BOARD_CITIES[conn.from];
       const b = BOARD_CITIES[conn.to];
       if (!a || !b) continue;
 
-      const built = gs && gs.links.find(l =>
-        (l.from === conn.from && l.to === conn.to) ||
-        (l.from === conn.to && l.to === conn.from));
-      if (built) continue;
+      if (builtLinkKeys.has(conn.from + '|' + conn.to)) continue;
 
       // draw route line
       const isCanal = conn.type === 'canal';
@@ -472,12 +501,15 @@ class BoardRenderer {
 
   /* ================================ cities ================================ */
   drawCities(ctx, gs) {
+    // O(1) lookups instead of O(n) .includes() per city per frame
+    const highlightedSet = new Set(this.highlightedCities);
+    const dimHighlightedSet = new Set(this.dimHighlightedCities);
     for (const [cid, pos] of Object.entries(BOARD_CITIES)) {
       const cd = gs ? gs.board[cid] : null;
       const hovered = this.hoveredCity === cid;
       const selected = this.selectedCity === cid;
-      const highlighted = this.highlightedCities.includes(cid);
-      const dimHighlighted = this.dimHighlightedCities.includes(cid);
+      const highlighted = highlightedSet.has(cid);
+      const dimHighlighted = dimHighlightedSet.has(cid);
       const nSlots = cd ? cd.slots.length : 1;
 
       // 只在 hover/selected/highlighted 時畫高亮（不畫半透明背景）

@@ -39,11 +39,37 @@ function getSocketId(playerId) {
   return info ? info.socketId : null;
 }
 
+// === 每個 socket 的速率限制器 ===
+// limits: { eventName: { max, windowMs } }
+function makeRateLimiter(limits) {
+  // counters: Map<eventName, { count, resetAt }>
+  const counters = new Map();
+  return function check(event) {
+    const rule = limits[event];
+    if (!rule) return true; // 無規則 → 放行
+    const now = Date.now();
+    let entry = counters.get(event);
+    if (!entry || now >= entry.resetAt) {
+      entry = { count: 0, resetAt: now + rule.windowMs };
+      counters.set(event, entry);
+    }
+    entry.count++;
+    return entry.count <= rule.max;
+  };
+}
+
 io.on('connection', (socket) => {
   console.log(`Connected: ${socket.id}`);
   let playerId = null;
   let currentRoom = null;
   let playerName = null;
+
+  // 每個連線獨立的速率限制
+  const rateLimit = makeRateLimiter({
+    'game-action':  { max: 20, windowMs: 1000 },
+    'pass-action':  { max: 10, windowMs: 1000 },
+    'chat':         { max: 5,  windowMs: 3000 },
+  });
 
   // === 斷線重連 ===
   socket.on('reconnect-attempt', (data) => {
@@ -165,6 +191,7 @@ io.on('connection', (socket) => {
 
   // === 遊戲行動 ===
   socket.on('game-action', (data) => {
+    if (!rateLimit('game-action')) { socket.emit('action-error', '操作過於頻繁，請稍後再試'); return; }
     if (!data || typeof data !== 'object') return;
     if (!currentRoom || !playerId) return;
     const room = gm.getRoom(currentRoom);
@@ -183,12 +210,13 @@ io.on('connection', (socket) => {
 
   // === 跳過 ===
   socket.on('pass-action', (data) => {
+    if (!rateLimit('pass-action')) { socket.emit('action-error', '操作過於頻繁，請稍後再試'); return; }
     if (!data || typeof data !== 'object') return;
     if (!currentRoom || !playerId) return;
     const room = gm.getRoom(currentRoom);
     if (!room || !room.game) return;
 
-    const { cardIndex } = data;
+    const cardIndex = typeof data.cardIndex === 'number' ? Math.trunc(data.cardIndex) : undefined;
     const result = room.game.executePass(playerId, cardIndex);
     if (result.success) {
       broadcastGameState(currentRoom);
@@ -219,10 +247,11 @@ io.on('connection', (socket) => {
 
   // === 聊天 ===
   socket.on('chat', (message) => {
+    if (!rateLimit('chat')) return; // 超速：靜默丟棄
     if (!currentRoom) return;
     if (typeof message !== 'string') return;
-    const sanitized = message.slice(0, 500).replace(/[<>]/g, '');
-    if (!sanitized) return;
+    const sanitized = message.slice(0, 500).replace(/[<>]/g, '').trim();
+    if (!sanitized) return; // 防止純空白訊息
     io.to(currentRoom).emit('chat', { from: (playerName || 'Player').slice(0, 50), message: sanitized });
   });
 

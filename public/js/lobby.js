@@ -1,5 +1,14 @@
 // 大廳管理 - 工業革命：伯明翰（全中文版）
 
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 class Lobby {
   constructor(socket) {
     this.socket = socket;
@@ -113,7 +122,7 @@ class Lobby {
       d.innerHTML = `
         <div style="display:flex;align-items:center;gap:8px">
           <div style="width:10px;height:10px;border-radius:50%;background:${col}"></div>
-          <span class="p-name">${p.name.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span>
+          <span class="p-name">${escHtml(p.name)}</span>
         </div>
         <span class="ready-badge ${p.connected === false ? 'no' : p.ready ? 'yes' : 'no'}">${p.connected === false ? '\u26A0 離線' : p.ready ? '\u2713 已準備' : '等待中...'}</span>
       `;

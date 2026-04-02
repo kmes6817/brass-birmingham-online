@@ -358,6 +358,11 @@ document.addEventListener('DOMContentLoaded', () => {
       window._notifiedThisTurn = false;
     }
 
+    // 遊戲結束時停用自動跳過，避免下一局殘留
+    if (state.gameOver && window._autoPass) {
+      window._autoPass = false;
+    }
+
     // 自動跳過模式
     if (window._autoPass && isMyTurn && myPlayer && myPlayer.handSize > 0) {
       setTimeout(() => socket.emit('pass-action', { cardIndex: 0 }), 300);
